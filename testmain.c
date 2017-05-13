@@ -36,7 +36,6 @@ int main(int argc, char** argv){
     s4 = lstrim(s4);
     s1 = lstrim(s1);
 
-    struct logstr s;
 
     //s1 = lscpy(s1, ",running man!");
     s2 = lscatfmt(s2, "%d,%s,%d", 100, ",running man!", 9999);

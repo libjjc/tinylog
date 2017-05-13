@@ -4,9 +4,13 @@
 #include <memory.h>
 #include <stdio.h>
 #include <ctype.h>
-
+#include <vadefs.h>
 #if defined(_MSC_VER)
 #define VSNPRINTF _vsnprintf
+#if _MSC_VER > 1900
+#define _crt_va_start __crt_va_start_a
+#define _crt_va_end __crt_va_end
+#endif
 #else
 #ifdef TINYLOG_HAVE_SNPRINTF
 #define VSNPRINTF vsnprintf
@@ -53,7 +57,7 @@ ls_t
 lsinitfmt(char* fmt, ...){
     int size = 0;
     va_list args;
-    _crt_va_start(args, fmt);
+	_crt_va_start(args, fmt);
     char* buffer = _ls_va_buffer(&size, fmt, args);
     if (!buffer) return NULL;
     struct logstr* s = (struct logstr*)malloc(sizeof(struct logstr) + size + 1);

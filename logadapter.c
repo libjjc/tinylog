@@ -2,6 +2,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
+#include <malloc.h>
 int
 addAdapter(struct adapter* ada, struct adapter* handler) {
     if (!ada) return -1;
@@ -10,7 +11,7 @@ addAdapter(struct adapter* ada, struct adapter* handler) {
     handler->parent = ada;
     ada->children[ada->count] = handler;
     ada->count++;
-    return NULL;
+    return 0;
 }
 
 struct adapter*
@@ -32,8 +33,8 @@ removeAdapter(struct adapter* ada, ls_t name){
     struct adapter* ptr = getAdapter(ada, name);
     if (!ptr || !ptr->parent) return;
 
-    struct adapter* s = &ptr->parent->children[0];
-    struct adapter* e = &ptr->parent->children[MAX_HANDLER_CHILDREN];
+    struct adapter* s = ptr->parent->children[0];
+    struct adapter* e = ptr->parent->children[MAX_HANDLER_CHILDREN];
     struct adapter* p = ptr;
     int size = sizeof(struct adapter*);
     memmove_s(p, (e - p)*size, p + size, size*(e - p - 1));
@@ -58,6 +59,16 @@ createFileAdapter(const char* logfile,const char* name){
     return ada;
 }
 
+int 
+initFileAdapter(struct adapter* ada, int argc, char** argv) {
+	return 0;
+}
+
+int
+openFileAdapter(struct adapter* ada) {
+	return 0;
+}
+
 int
 fileAdapterHandle(struct adapter* ada , ls_t msg){
     if (!ada||!ada->handle) return -1;
@@ -68,15 +79,15 @@ fileAdapterHandle(struct adapter* ada , ls_t msg){
 
 void 
 fileAdapterClose(struct adapter* ada){
-    if (!ada||!ada->handle) return -1;
+    if (!ada||!ada->handle) return ;
     FILE* f = (FILE*)ada->handle;
-    if (fclose(f)) return -1;
-    return 0;
+    if (fclose(f)) return ;
+    return ;
 }
 
 
 struct adapter*
-createConsileAdapter(ls_t name){
+createConsoleAdapter(ls_t name){
     struct adapter* ada = (struct adapter*)malloc(sizeof(struct adapter));
     ada->handle = stdout;
     lscpy(ada->name, name);
@@ -100,7 +111,7 @@ consoleAdapterClose(struct adapter* ada, ls_t msg){
 }
 
 struct adapter*
-createNetAdapter(int ip, int port){
+createNetAdapter(const char* ip, int port){
     return NULL;
 }
 
@@ -115,6 +126,21 @@ netAdapterClose(){
 }
 
 struct adapter*
+createDBAdapter(struct adapter* ada, ls_t msg) {
+	return NULL;
+}
+
+int
+DBAdapterHandle(const char* connect_string) {
+	return 0;
+}
+
+void 
+DBAdapterClose() {
+
+}
+
+struct adapter*
 createNullAdapter(){
     return NULL;
 }
@@ -125,6 +151,6 @@ nullAdapterHandle(struct adapter* ada, ls_t msg){
 }
 
 void
-nullAdapterHandle(){
+nullAdapterClose(){
 
 }

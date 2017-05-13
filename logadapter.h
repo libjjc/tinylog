@@ -33,6 +33,12 @@ struct adapter*
 createFileAdapter(const char* logfile,const char* name);
 
 int 
+initFileAdapter(struct adapter* ada, int argc, char** argv);
+
+int
+openFileAdapter(struct adapter* ada);
+
+int 
 fileAdapterHandle(struct adapter* ada , ls_t msg);
 
 void
@@ -45,13 +51,22 @@ int
 consoleAdapterHandle(struct adapter* ada,ls_t msg);
     
 struct adapter*
-createNetAdapter(int ip,int port);
+createNetAdapter(const char* ip , int port);
 
 int
 netAdapterHandle(struct adapter* ada,ls_t msg);
 
 void
 netAdapterClose();
+
+int
+createDBAdapter(struct adapter* ada, ls_t msg);
+
+int
+DBAdapterHandle(const char* connect_string);
+
+void
+DBAdapterClose();
 
 struct adapter*
 createNullAdapter();
