@@ -4,30 +4,19 @@
 #include "logstr.h"
 
 typedef void* adapter_handle;
-typedef void(*adapter_handler)(ls_t msg);
+typedef int(*adapter_init)(int, char**);
+typedef int(*adapter_open)();
+typedef void(*adapter_handler)();
+typedef void(*adapter_close)();
 
-#define MAX_HANDLER_CHILDREN 16
-#define MAX_ADA_NAME_LENGTH 32
 struct adapter {
     adapter_handle handle;
-    struct adapter* parent;
-    int count;
-    ls_t name;
-    struct adapter* children[MAX_HANDLER_CHILDREN];
+    adapter_init init;
+    adapter_open open;
+    adapter_handler handler;
+    adapter_close close;
 };
 
-
-int
-addAdapter(struct adapter* ada,struct adapter* handle);
-
-struct adapter*
-getAdapter(struct adapter* ada,ls_t name);
-
-void
-removeAdapter(struct adapter* ada,ls_t name);
-
-void
-clearAdapters(struct adapter* ada);
 
 struct adapter*
 createFileAdapter(const char* logfile,const char* name);
