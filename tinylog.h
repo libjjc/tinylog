@@ -12,6 +12,8 @@ tlshutdown();
 struct adapter*
 root();
 
+int tlloadcfg(const char* config);
+
 #define TLL_EMERG		0
 #define TLL_FATAL		100
 #define TLL_ALERT		200
@@ -33,6 +35,9 @@ tlfatal(const char* msg);
 
 void
 tlalert(const char* msg);
+
+void
+tlerror(const char* msg);
 
 void
 tlwarn(const char* msg);
