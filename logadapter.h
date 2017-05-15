@@ -3,31 +3,49 @@
 
 #include "logstr.h"
 
-typedef void* adapter_handle;
-typedef void(*adapter_handler)(ls_t msg);
+struct logmsg;
+typedef ls_t(*layout_callback)(ls_t args,struct logmsg* msg);
 
-#define MAX_HANDLER_CHILDREN 16
-#define MAX_ADA_NAME_LENGTH 32
-struct adapter {
-    adapter_handle handle;
-    struct adapter* parent;
-    int count;
-    ls_t name;
-    struct adapter* children[MAX_HANDLER_CHILDREN];
+typedef void* adapter_handle;
+typedef int(*adapter_init)(int, char**);
+typedef int(*adapter_open)();
+typedef void(*adapter_handler)();
+typedef void(*adapter_close)();
+
+
+struct layout {
+	layout_callback format;
+	ls_t args;
+	struct logmst* msg;
 };
 
+struct adapter {
+    adapter_handle handle;
+	struct layout* layout;
+    adapter_init init;
+    adapter_open open;
+    adapter_handler handler;
+    adapter_close close;
+};
+struct layout*
+createEmptyLayout();
 
-int
-addAdapter(struct adapter* ada,struct adapter* handle);
-
-struct adapter*
-getAdapter(struct adapter* ada,ls_t name);
+struct layout*
+createLayout(struct adapter* ada, layout_callback format, ls_t args);
 
 void
-removeAdapter(struct adapter* ada,ls_t name);
+freeLayout(struct layout* layout);
 
 void
-clearAdapters(struct adapter* ada);
+setLayoutArgs(struct layout* layout, layout_callback format, ls_t args);
+
+ls_t 
+patternLayout(ls_t args, struct logmsg* msg);
+
+ls_t
+defaultLayout(ls_t args, struct logmsg* msg);
+
+
 
 struct adapter*
 createFileAdapter(const char* logfile,const char* name);

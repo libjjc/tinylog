@@ -3,48 +3,35 @@
 #include <string.h>
 #include <stdio.h>
 #include <malloc.h>
-int
-addAdapter(struct adapter* ada, struct adapter* handler) {
-    if (!ada) return -1;
-    if (ada->count == MAX_HANDLER_CHILDREN) return -2;
-    if (getAdapter(ada,ada->name))return -3;
-    handler->parent = ada;
-    ada->children[ada->count] = handler;
-    ada->count++;
-    return 0;
+
+
+struct layout * 
+createEmptyLayout()
+{
+	return NULL;
 }
 
-struct adapter*
-getAdapter(struct adapter* ada, ls_t name) {
-    if (!ada) return 0;
-    if (!lscmpls(ada->name, name)) return ada;
-    struct adapter* ptr = NULL;
-    for (int i = 0; i < ada->count; i++){
-        if (!(ptr = getAdapter(ada->children[i], name))){
-            return ptr;
-        }
-    }
-    return NULL;
-}
-
-void
-removeAdapter(struct adapter* ada, ls_t name){
-    if (!ada) return ;
-    struct adapter* ptr = getAdapter(ada, name);
-    if (!ptr || !ptr->parent) return;
-
-    struct adapter* s = ptr->parent->children[0];
-    struct adapter* e = ptr->parent->children[MAX_HANDLER_CHILDREN];
-    struct adapter* p = ptr;
-    int size = sizeof(struct adapter*);
-    memmove_s(p, (e - p)*size, p + size, size*(e - p - 1));
-    ptr->parent->count--;
+struct layout * 
+createLayout(struct adapter * ada, layout_callback format, ls_t args)
+{
+	return NULL;
 }
 
 void 
-clearAdapters(struct adapter* ada){
-    if (!ada) return;
-    ada->count = 0;
+setLayoutArgs(struct layout * layout, layout_callback format, ls_t args)
+{
+}
+
+ls_t 
+patternLayout(ls_t args, struct logmsg * msg)
+{
+	return "";
+}
+
+ls_t 
+defaultLayout(ls_t args, struct logmsg * msg)
+{
+	return "";
 }
 
 struct adapter*
@@ -53,9 +40,6 @@ createFileAdapter(const char* logfile,const char* name){
     if (f = fopen(logfile, "at+")) return NULL;
     struct adapter* ada = (struct adapter*)malloc(sizeof(struct adapter));
     ada->handle = ada;
-    ada->parent = NULL;
-    ada->count = 0;
-    lscpy(ada->name, name);
     return ada;
 }
 
@@ -90,9 +74,6 @@ struct adapter*
 createConsoleAdapter(ls_t name){
     struct adapter* ada = (struct adapter*)malloc(sizeof(struct adapter));
     ada->handle = stdout;
-    lscpy(ada->name, name);
-    ada->count = 0;
-    ada->parent = NULL;
     return ada;
 }
 
