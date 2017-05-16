@@ -44,7 +44,7 @@ struct remoteAdapterArgs {
 struct adapter {
     adapter_arguments args;
     adapter_handle handle;
-	struct layout* layout;
+    struct layout* layout;
     adapter_init init;
     adapter_open open;
     adapter_handler handler;

@@ -19,59 +19,11 @@ root()
 	return &gl_logger_root;
 }
 
-<<<<<<< HEAD
 int
 tlloadcfg(const char* config) {
 	return 0;
 }
 
-void 
-tllog(int priority, const char * msg)
-{
-	if (priority > TLL_NOTSET) {
-		tlnotset(msg);
-	}
-	else if (priority > TLL_DEBUG) {
-		tldebug(msg);
-	}
-	else if (priority > TLL_INFO) {
-		tlinfo(msg);
-	}
-	else if (priority > TLL_NOTICE) {
-		tlnotice(msg);
-	}
-	else if (priority > TLL_WARN) {
-		tlwarn(msg);
-	}
-	else if (priority > TLL_ERROR) {
-		tlerror(msg);
-	}
-	else if (priority > TLL_ALERT) {
-		tlalert(msg);
-	}
-	else if (priority > TLL_FATAL) {
-		tlfatal(msg);
-	}
-	else if (priority > TLL_EMERG) {
-		tlemerg(msg);
-	}
-	else {
-
-	}
-}
-
-void 
-tlemerg(const char * msg){
-
-}
-
-void 
-tlfatal(const char * msg){
-}
-
-void 
-tlalert(const char * msg){
-=======
 void
 tllog(int priority, const char* msg){
 
@@ -108,6 +60,20 @@ tllog(int priority, const char* msg){
 
 void 
 tlemerg(const char * msg){
+
+}
+
+void 
+tlfatal(const char * msg){
+}
+
+void 
+tlalert(const char * msg) {
+}
+
+
+void 
+tlemerg(const char * msg){
     tllog(TLL_EMERG, msg);
 }
 
@@ -124,47 +90,31 @@ tlalert(const char * msg){
 void
 tlerror(const char* msg){
     tllog(TLL_ERROR, msg);
->>>>>>> 4df00282cdaa4af450c61de3b05e3254ba28d55f
 }
 
 void 
 tlwarn(const char * msg){
-<<<<<<< HEAD
-=======
     tllog(TLL_WARN, msg);
->>>>>>> 4df00282cdaa4af450c61de3b05e3254ba28d55f
 }
 
 void 
 tlnotice(const char * msg){
-<<<<<<< HEAD
-=======
     tllog(TLL_NOTICE, msg);
->>>>>>> 4df00282cdaa4af450c61de3b05e3254ba28d55f
 }
 
 void 
 tlinfo(const char * msg){
-<<<<<<< HEAD
-=======
     tllog(TLL_INFO, msg);
->>>>>>> 4df00282cdaa4af450c61de3b05e3254ba28d55f
 }
 
 void 
 tldebug(const char * msg){
-<<<<<<< HEAD
-=======
     tllog(TLL_DEBUG, msg);
->>>>>>> 4df00282cdaa4af450c61de3b05e3254ba28d55f
 }
 
 void 
 tlnotset(const char * msg){
-<<<<<<< HEAD
-=======
     tllog(TLL_NOTSET, msg);
->>>>>>> 4df00282cdaa4af450c61de3b05e3254ba28d55f
 }
 
 bool
