@@ -257,6 +257,27 @@ lscatls(ls_t ls, const ls_t str){
     return s->str;
 }
 
+ls_t
+lscatlen(ls_t ls, const char* str, int len){
+    if (!ls) return NULL;
+    if (!str) return lsbegin(ls);
+    int slen = len;
+    if (lsavil(ls) >= slen){
+        if (memcpy_s(lsend(ls), lsavil(ls), str, slen)) return NULL;
+        _LSP(ls)->len += slen;
+        _LSP(ls)->free -= slen;
+        *lsend(ls) = 0;
+        return lsbegin(ls);
+    }
+    struct logstr* s;
+    s = (struct logstr*)realloc(_LSP(ls), sizeof(struct logstr)+lssize(ls) + slen+1);
+    if (!s) return NULL;
+    if (memcpy_s(&s->str[s->len], slen, str, slen)) return NULL;
+    s->len += slen, s->free = 0;
+    s->str[s->len] = 0;
+    return s->str;
+}
+
 ls_t 
 lslower(ls_t ls){
     char* p = lsbegin(ls), *q = lsend(ls);

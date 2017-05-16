@@ -6,6 +6,7 @@
 struct logmsg;
 typedef ls_t(*layout_callback)(ls_t args,struct logmsg* msg);
 
+typedef void* adapter_arguments;
 typedef void* adapter_handle;
 typedef int(*adapter_init)(int, char**);
 typedef int(*adapter_open)();
@@ -16,10 +17,32 @@ typedef void(*adapter_close)();
 struct layout {
 	layout_callback format;
 	ls_t args;
-	struct logmst* msg;
 };
 
+struct fileAdapterArgs {
+    ls_t path;
+    int fd;
+    int mode;
+};
+
+struct rollingFileAdapterArgs {
+    ls_t path;
+    int fd;
+    int mode;
+    int szbfile;
+    int currentIndex;
+};
+
+struct remoteAdapterArgs {
+    ls_t ip;
+    int port;
+    int socket;
+    int mode;
+};
+
+
 struct adapter {
+    adapter_arguments args;
     adapter_handle handle;
 	struct layout* layout;
     adapter_init init;
@@ -77,7 +100,7 @@ netAdapterHandle(struct adapter* ada,ls_t msg);
 void
 netAdapterClose();
 
-int
+struct adapter*
 createDBAdapter(struct adapter* ada, ls_t msg);
 
 int

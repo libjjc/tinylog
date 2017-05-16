@@ -315,6 +315,15 @@ lscat(ls_t ls,const char* str);
 ls_t
 lscatls(ls_t ls, const ls_t str);
 
+/**
+ * @brief
+ *      将str字符串连接到ls字符串尾部并返回。
+ * @note
+ *      与lscat不同的是lscatls表示用来拷贝的源数据的一定长度，而并非全部。
+ */
+ls_t
+lscatlen(ls_t ls, const char* str, int len);
+
 
 /**
  * @brief
