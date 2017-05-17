@@ -1,0 +1,4 @@
+#ifndef TINYLOG_CONFIG_HH
+#define TINYLOG_CONFIG_HH
+
+#endif//TINYLOG_CONFIG_HH

@@ -42,6 +42,14 @@ ls_t
 lsinit(char c, int len);
 
 
+ls_t
+lsinitcpy(const char* str);
+
+
+ls_t
+lsinitcpyls(const ls_t ls);
+
+
 /**
  * @brief
  *      创建一个空的logstr字符串。

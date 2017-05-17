@@ -2,30 +2,33 @@
 #define LOG_ADAPTER_HH
 
 #include "logstr.h"
+#include "loglayout.h"
 
-struct logmsg;
-typedef ls_t(*layout_callback)(ls_t args,struct logmsg* msg);
+struct logmsg {
+    int priority;
+    int timestamp;
+    ls_t prioname;
+    ls_t catagory;
+    ls_t msg;
+};
 
 typedef void* adapter_arguments;
-typedef void* adapter_handle;
-typedef int(*adapter_init)(int, char**);
-typedef int(*adapter_open)();
-typedef void(*adapter_handler)();
-typedef void(*adapter_close)();
+typedef int(*adapter_init)(struct adapter*,int, char**);
+typedef int(*adapter_open)(struct adapter*);
+typedef int(*adapter_handler)(struct adapter*,struct logmsg*);
+typedef int(*adapter_close)(struct adapter*);
+typedef void(*adapter_free)(struct adapter*);
 
 
-struct layout {
-	layout_callback format;
-	ls_t args;
-};
-
-struct fileAdapterArgs {
+struct fileAdapter {
     ls_t path;
     int fd;
+    int flag;
     int mode;
+    int maxsize;
 };
 
-struct rollingFileAdapterArgs {
+struct rollingFileAdapter{
     ls_t path;
     int fd;
     int mode;
@@ -33,45 +36,38 @@ struct rollingFileAdapterArgs {
     int currentIndex;
 };
 
-struct remoteAdapterArgs {
+struct consoleAdapter {
+    int fd;
+};
+
+struct remoteAdapter{
     ls_t ip;
     int port;
     int socket;
     int mode;
 };
 
+struct winntEventAdapter{
+    int nul;
+};
+
+struct syslogAdapter {
+    int nul;
+};
 
 struct adapter {
     adapter_arguments args;
-    adapter_handle handle;
-	struct layout* layout;
+	layout_callback layout;
     adapter_init init;
     adapter_open open;
     adapter_handler handler;
     adapter_close close;
+    adapter_free free;
+    ls_t name;
 };
-struct layout*
-createEmptyLayout();
-
-struct layout*
-createLayout(struct adapter* ada, layout_callback format, ls_t args);
-
-void
-freeLayout(struct layout* layout);
-
-void
-setLayoutArgs(struct layout* layout, layout_callback format, ls_t args);
-
-ls_t 
-patternLayout(ls_t args, struct logmsg* msg);
-
-ls_t
-defaultLayout(ls_t args, struct logmsg* msg);
-
-
 
 struct adapter*
-createFileAdapter(const char* logfile,const char* name);
+createFileAdapter(struct catagory* cata ,const char* logfile,const char* name,int maxsize);
 
 int 
 initFileAdapter(struct adapter* ada, int argc, char** argv);
@@ -80,42 +76,65 @@ int
 openFileAdapter(struct adapter* ada);
 
 int 
-fileAdapterHandle(struct adapter* ada , ls_t msg);
-
-void
-fileAdapterClose(struct adapter* ada);
-
-struct adapter*
-createConsoleAdapter(ls_t name);
+fileAdapterHandle(struct adapter* ada , struct logmsg* msg);
 
 int
-consoleAdapterHandle(struct adapter* ada,ls_t msg);
+closeFileAdapter(struct adapter* ada);
+
+void
+freeFileAdapter(struct adapter* ada);
+
+struct adapter*
+createConsoleAdapter(struct catagory* cata,ls_t name);
+
+int
+initConsoleAdapter(struct adapter* ada, int argc, char** argv);
+
+int 
+openConsoleAdapter(struct adapter* ada);
+
+int
+consoleAdapterHandle(struct adapter* ada,struct logmsg* msg);
+
+int
+closeConsoleAdapter(struct adapter* ada);
+
+void
+freeConsoleAdapter(struct adapter* ada);
     
-struct adapter*
-createNetAdapter(const char* ip , int port);
+//struct adapter*
+//createNetAdapter(struct catagory* cata,const char* ip , int port);
+//
+//int
+//initNetAdapter(struct adapter* ada, int argc, char** argv);
+//
+//int
+//netAdapterHandle(struct adapter* ada,struct logmsg* msg);
+//
+//int
+//netAdapterClose(struct adapter* ada);
+//
+//void
+//freeNetAdapter(struct adapter* ada);
+//
+//struct adapter*
+//createDBAdapter(struct catagory* cata,struct adapter* ada);
+//
+//int
+//initDBAdapter(struct adapter* ada, int argc, char** argv);
+//
+//int
+//openDBAdapter(struct adapter* ada);
+//
+//int
+//DBAdapterHandle(struct adapter* ada,struct logmsg* msg);
+//
+//int
+//DBAdapterClose(struct adapter* ada);
+//
+//void
+//freeDBAdapter(struct adapter* ada);
 
-int
-netAdapterHandle(struct adapter* ada,ls_t msg);
 
-void
-netAdapterClose();
-
-struct adapter*
-createDBAdapter(struct adapter* ada, ls_t msg);
-
-int
-DBAdapterHandle(const char* connect_string);
-
-void
-DBAdapterClose();
-
-struct adapter*
-createNullAdapter();
-
-int
-nullAdapterHandle(struct adapter* ada,ls_t msg);
-
-void
-nullAdapterClose();
 
 #endif//LOG_ADAPTER_HH

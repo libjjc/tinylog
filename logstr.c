@@ -45,6 +45,31 @@ lsinit(char c, int len){
     return &s->str[0];
 }
 
+ls_t
+lsinitcpy(const char* str){
+    if (!str) return NULL;
+    int len = strlen(str);
+    struct logstr* s = (struct logstr*)malloc(sizeof(struct logstr)+len+1);
+    if (!s) return 0;
+    memcpy_s(&s->str[0],len,str, len);
+    s->str[len] = 0;
+    s->len = len;
+    s->free = 0;
+    return &s->str[0];
+}
+
+ls_t
+lsinitcpyls(const ls_t ls){
+    if (!ls) return NULL;
+    struct logstr* s = (struct logstr*)malloc(lsmemsize(ls));
+    if (!s) return 0;
+    memcpy_s(&s->str[0],lssize(ls),ls, lslen(ls));
+    s->str[lslen(ls)] = 0;
+    s->len = lslen(ls);
+    s->free = lsavil(ls);
+    return &s->str[0];
+}
+
 ls_t 
 lsmkempty(){
     struct logstr* s = malloc(sizeof(struct logstr) + 1);
@@ -84,9 +109,9 @@ lscreate(const void* str, int len){
     if (str && len){
         memcpy_s(&s->str[0],len, str, len);
     }
-    s->str[len] = 0;
-    s->len = len;
-    s->free = 0;
+    s->str[str ? len : 0] = 0;
+    s->len = str ? len : 0;
+    s->free = str ? 0 : len;
     return &s->str[0];
 }
 

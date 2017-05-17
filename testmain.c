@@ -1,5 +1,10 @@
 #include "logstr.h"
-
+#include <stdio.h>
+#include <io.h>
+#include "tinylog.h"
+#include "catagory.h"
+#include "logadapter.h"
+#include "logdef.h"
 int main(int argc, char** argv){
     ls_t s1, s2, s3, s4;
     s1 = lsinit('a', 12);
@@ -44,5 +49,19 @@ int main(int argc, char** argv){
     lsfree(s2);
     lsfree(s3);
     lsfree(s4);
+
+    tlinit();
+    struct catagory* error = createCatagory(root(), TLL_ERROR, "error test");
+    struct catagory* warn = createCatagory(root(), TLL_WARN, "warn test");
+    createConsoleAdapter(error, "console.error");
+    createFileAdapter(warn, "d:/1.txt", "file.warn",100);
+    //fprintf(stdout, "%s", "hello world!");
+    //write(stdout,)
+    //write((FILE*)(&stdout), "hello world!", 12);
+    tllog(TLL_FATAL, "fatal error");
+    tlerror("error error");
+    tlwarn("warn error");
+    tlshutdown();
+    
     return 0;
 }
