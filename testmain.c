@@ -1,6 +1,7 @@
 #include "logstr.h"
 #include <stdio.h>
 #include <io.h>
+#include <fcntl.h>
 #include "tinylog.h"
 #include "catagory.h"
 #include "logadapter.h"
@@ -50,6 +51,13 @@ int main(int argc, char** argv){
     lsfree(s3);
     lsfree(s4);
 
+	int fd = _open("d:/2.txt", O_APPEND | O_WRONLY | O_CREAT, O_TEXT | O_NOINHERIT);
+	_write(fd, "aaa\n", 4);
+	_write(fd, "hello world!\n", 14);
+	fd = _open("d:/2.txt", O_APPEND | O_WRONLY | O_CREAT | O_TRUNC, O_TEXT | O_NOINHERIT);
+	_write(fd, "bbbb\n", 5);
+	_write(fd, "end\n", 4);
+	_close(fd);
     tlinit();
     struct catagory* error = createCatagory(root(), TLL_ERROR, "error test");
     struct catagory* warn = createCatagory(root(), TLL_WARN, "warn test");

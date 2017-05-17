@@ -5,6 +5,7 @@
 #include <malloc.h>
 #include <stdbool.h>
 #include <time.h>
+#include <sys/timeb.h>
 
 #define layoutAddr(layout_type,callback)\
     (layout_type*)(&callback - (int)(((layout_type*)(NULL))->layout))
@@ -44,6 +45,9 @@ dateconverse(ls_t ls, const char* fmt , struct logmsg* msg){
         if ('%' == *p && *(p++)){
             if (!macroing) break;
             switch (*p){
+			case '%':
+				ls = lscat(ls, "%");
+				break;
             case 'y':
                 ls = lscatlen(ls, &num_str_100[2 * now.tm_year % 100], 2);
                 break;
@@ -68,6 +72,7 @@ dateconverse(ls_t ls, const char* fmt , struct logmsg* msg){
             case 'l':
                 break;
             default:
+				ls = lscatlen(ls, p, 1);
                 break;
             }
         }else if ('{' == *p){
@@ -145,6 +150,6 @@ freeBasicLayout(layout_callback layout){
 
 ls_t
 basicLayout(layout_callback layout,struct logmsg* msg){
-    ls_t message = lsinitfmt("%d [%s]: %s \n", msg->timestamp, msg->prioname, msg->msg);
+    ls_t message = lsinitfmt("%ld [%s]: %s \n", msg->timestamp, msg->prioname, msg->msg);
     return message;
 }

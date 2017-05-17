@@ -26,15 +26,17 @@ struct fileAdapter {
     int fd;
     int flag;
     int mode;
-    int maxsize;
+	long size;
+    long maxsize;
 };
 
 struct rollingFileAdapter{
     ls_t path;
     int fd;
     int mode;
-    int szbfile;
-    int currentIndex;
+    long index;
+    long size;
+	long rollingsize;
 };
 
 struct consoleAdapter {
@@ -102,6 +104,15 @@ closeConsoleAdapter(struct adapter* ada);
 
 void
 freeConsoleAdapter(struct adapter* ada);
+
+struct adapter*
+createRollingFileAdapter(struct catagory* cata, ls_t name,const char* logfile,long rollingsize);
+
+int
+rollingFileAdapterAccept(struct adapter* apt, struct logmsg* msg);
+
+int
+freeRollingFileAdapter(struct adapter* apt);
     
 //struct adapter*
 //createNetAdapter(struct catagory* cata,const char* ip , int port);
