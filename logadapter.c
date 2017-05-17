@@ -29,26 +29,6 @@
     }\
     if (adapter) free(adapter);
 
-<<<<<<< HEAD
-=======
-void 
-freeLayout(struct layout * layout){
-}
-
-void 
-setLayoutArgs(struct layout * layout, layout_callback format, ls_t args){
-}
-
-ls_t 
-patternLayout(ls_t args, struct logmsg * msg){
-	return "";
-}
-
-ls_t 
-defaultLayout(ls_t args, struct logmsg * msg){
-	return "";
-}
->>>>>>> 39bea13f7fcc43e88fe1cc2090f804761967b097
 
 struct adapter*
 createFileAdapter(struct catagory* cata ,const char* logfile,const char* name,int maxsize){

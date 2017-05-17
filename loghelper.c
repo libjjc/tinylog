@@ -27,13 +27,14 @@ static const char* num_61[61] = {
 
 #define num_to_str(str,num,digit)\
     memcpy_s(str,(digit),&num_str_100[2*(num)],(digit));
-int
-getTimeStamp(){
+
+time_t
+timestamp(){
     return time(0);
 }
 
 ls_t
-getTimeFormat(const char* fmt){
+strtimenow(const char* fmt){
     time_t t_now;
     time(&t_now);
     struct tm now;
@@ -80,57 +81,6 @@ getTimeFormat(const char* fmt){
 }
 
 ls_t
-getTimeDefault(){
-    return getTimeFormat("%y-%M-%d %d:%m:%s");
-}
-
-void
-getYear2String(char(*y)[2], int year){
-    num_to_str(y, year % 100, 2);
-}
-
-void
-getYear4String(char(*y)[4], int year){
-    num_to_str(y, year , 4);
-}
-
-void
-getMonthString(char(*m)[2], int month){
-    num_to_str(m, month , 2);
-}
-
-void
-getDayString(char(*d)[2], int day){
-    num_to_str(d, day, 2);
-}
-
-void
-getWeekdayString(char(*w)[8], int weekday){
-    num_to_str(w, weekday, 1);
-}
-
-void
-getHourString(char(*h)[2], int hour){
-    num_to_str(h, hour, 2);
-}
-
-void
-getMinuteString(char(*m)[2], int minute){
-    num_to_str(m, minute, 2);
-}
-
-void
-getSecondString(char(*s)[2], int second){
-    num_to_str(s, second, 2);
-}
-
-void
-getMSString(char(*ms)[3], int s){
-    //num_to_str(ms, s, 3);
-}
-
-ls_t
-lscatnum(ls_t ls, int num){
-    ls = lscatlen(ls, &num_str_100[2 * num % 100], 2);
-    return ls;
+strnow(){
+    return strtimenow("%y-%M-%d %d:%m:%s");
 }

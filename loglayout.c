@@ -48,7 +48,7 @@ dateconverse(ls_t ls, const char* fmt , struct logmsg* msg){
                 ls = lscatlen(ls, &num_str_100[2 * now.tm_year % 100], 2);
                 break;
             case 'Y':
-                ls = lscatfmt("%d", now.tm_year);
+                ls = lscatfmt(ls, "%d", now.tm_year);
                 break;
             case 'M':
                 ls = lscatlen(ls, &num_str_100[2 * (now.tm_mon + 1)], 2);

@@ -3,10 +3,11 @@
 
 #include "logstr.h"
 #include "loglayout.h"
+#include <time.h>
 
 struct logmsg {
     int priority;
-    int timestamp;
+    time_t timestamp;
     ls_t prioname;
     ls_t catagory;
     ls_t msg;
@@ -57,12 +58,7 @@ struct syslogAdapter {
 
 struct adapter {
     adapter_arguments args;
-<<<<<<< HEAD
 	layout_callback layout;
-=======
-    adapter_handle handle;
-    struct layout* layout;
->>>>>>> 39bea13f7fcc43e88fe1cc2090f804761967b097
     adapter_init init;
     adapter_open open;
     adapter_handler handler;
