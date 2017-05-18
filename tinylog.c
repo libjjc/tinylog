@@ -1,116 +1,121 @@
 #include "logdef.h"
 #include "tinylog.h"
-#include "logadapter.h"
-#include "loghelper.h"
+#include "adapter.h"
+#include "helper.h"
 #include "catagory.h"
+#include "logmsg.h"
 #include <string.h>
 
-struct catagory gl_logger_root;
+struct _catagory gl_logger_root;
 
-void 
+void
 tlinit()
 {
 }
 
-void 
+void
 tlshutdown()
 {
 }
 
-struct catagory * 
-root()
+struct _catagory *
+    root()
 {
-	return &gl_logger_root;
+    return &gl_logger_root;
 }
 
 int
 tlloadcfg(const char* config) {
-	return 0;
+    return 0;
 }
 
 void
-tllog(int priority, const char* msg){
+tllog(int priority, const char* _msg, ...){
 
-    struct catagory* _root = root();
+    struct _catagory* _root = root();
     if (!_root) return;
-    struct logmsg logmsg;
+    struct _log_msg msg;
     if (priority <= TLL_EMERG){
-        logmsg.priority = TLL_EMERG;
-        logmsg.prioname = lscreate(EN_EMERG, strlen(EN_EMERG));
+        msg.prior = TLL_EMERG;
+        msg.s_prior = lscreate(EN_EMERG, strlen(EN_EMERG));
     } else if (priority <= TLL_FATAL){
-        logmsg.priority = TLL_FATAL;
-        logmsg.prioname = lscreate(EN_FATAL, strlen(EN_FATAL));
+        msg.prior = TLL_FATAL;
+        msg.s_prior = lscreate(EN_FATAL, strlen(EN_FATAL));
     } else if (priority <= TLL_ALERT){
-        logmsg.priority = TLL_ALERT;
-        logmsg.prioname = lscreate(EN_ALERT, strlen(EN_ALERT));
+        msg.prior = TLL_ALERT;
+        msg.s_prior = lscreate(EN_ALERT, strlen(EN_ALERT));
     } else if (priority <= TLL_ERROR){
-        logmsg.priority = TLL_ERROR;
-        logmsg.prioname = lscreate(EN_ERROR, strlen(EN_ERROR));
+        msg.prior = TLL_ERROR;
+        msg.s_prior = lscreate(EN_ERROR, strlen(EN_ERROR));
     } else if (priority <= TLL_WARN){
-        logmsg.priority = TLL_WARN;
-        logmsg.prioname = lscreate(EN_WARN, strlen(EN_WARN));
+        msg.prior = TLL_WARN;
+        msg.s_prior = lscreate(EN_WARN, strlen(EN_WARN));
     } else if (priority <= TLL_NOTICE){
-        logmsg.priority = TLL_NOTICE;
-        logmsg.prioname = lscreate(EN_NOTICE, strlen(EN_NOTICE));
+        msg.prior = TLL_NOTICE;
+        msg.s_prior = lscreate(EN_NOTICE, strlen(EN_NOTICE));
     } else if (priority <= TLL_INFO){
-        logmsg.priority = TLL_INFO;
-        logmsg.prioname = lscreate(EN_INFO, strlen(EN_INFO));
+        msg.prior = TLL_INFO;
+        msg.s_prior = lscreate(EN_INFO, strlen(EN_INFO));
     } else if (priority <= TLL_DEBUG){
-        logmsg.priority = TLL_DEBUG;
-        logmsg.prioname = lscreate(EN_DEBUG, strlen(EN_DEBUG));
+        msg.prior = TLL_DEBUG;
+        msg.s_prior = lscreate(EN_DEBUG, strlen(EN_DEBUG));
     } else if (priority <= TLL_NOTSET){
-        logmsg.priority = TLL_NOTSET;
-        logmsg.prioname = lscreate(EN_NOTSET, strlen(EN_NOTSET));
+        msg.prior = TLL_NOTSET;
+        msg.s_prior = lscreate(EN_NOTSET, strlen(EN_NOTSET));
     } else return;
 
-    logmsg.msg = lscreate(msg, strlen(msg));
-    logmsg.timestamp = timestamp();
+    msg.msg = lscreate(_msg, strlen(_msg));
+    msg.ts.sec = 0;
 
-    capacityLogging(_root, &logmsg);
+    capacityLogging(_root, &msg);
+
+    lsfree(msg.cagy);
+    lsfree(msg.msg);
+    lsfree(msg.s_prior);
 }
 
-void 
-tlemerg(const char * msg){
+void
+tlemerg(const char * msg, ...){
     tllog(TLL_EMERG, msg);
 }
 
-void 
-tlfatal(const char * msg){
+void
+tlfatal(const char * msg, ...){
     tllog(TLL_FATAL, msg);
 }
 
-void 
-tlalert(const char * msg){
+void
+tlalert(const char * msg, ...){
     tllog(TLL_ALERT, msg);
 }
 
 void
-tlerror(const char* msg){
+tlerror(const char* msg, ...){
     tllog(TLL_ERROR, msg);
 }
 
-void 
-tlwarn(const char * msg){
+void
+tlwarn(const char * msg, ...){
     tllog(TLL_WARN, msg);
 }
 
-void 
-tlnotice(const char * msg){
+void
+tlnotice(const char * msg, ...){
     tllog(TLL_NOTICE, msg);
 }
 
-void 
-tlinfo(const char * msg){
+void
+tlinfo(const char * msg, ...){
     tllog(TLL_INFO, msg);
 }
 
-void 
-tldebug(const char * msg){
+void
+tldebug(const char * msg, ...){
     tllog(TLL_DEBUG, msg);
 }
 
-void 
-tlnotset(const char * msg){
+void
+tlnotset(const char * msg, ...){
     tllog(TLL_NOTSET, msg);
 }
 

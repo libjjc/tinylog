@@ -15,7 +15,7 @@
 
 
 typedef char* ls_t;
-struct logstr{
+struct _log_str{
     int len;
     int free;
     char str[];
@@ -48,6 +48,27 @@ lsinitcpy(const char* str);
 
 ls_t
 lsinitcpyls(const ls_t ls);
+
+ls_t
+lscpyfmt(const char* fmt, ...);
+
+ls_t
+lsrep(ls_t ls, const char* str);
+
+ls_t
+lsrepls(ls_t ls, const ls_t str);
+
+ls_t
+lscatint(ls_t ls, int v);
+
+ls_t
+lscatflt(ls_t ls, float v);
+
+ls_t
+lscatdbl(ls_t ls, double v);
+
+ls_t
+lscati64(ls_t ls, __int64 v);
 
 
 /**
@@ -158,7 +179,7 @@ lsfree(ls_t ls);
  *      ls_t s1 = lsint('a',5);
  *      5 == lslen(s1);
  * @note
- *      参见struct logstr定义
+ *      参见struct _log_str定义
  * @see
  *      lsresize,lssize,lslen,lsavil,lsmemsize
  */
@@ -178,7 +199,7 @@ lslen(const ls_t ls);
  *       s1 = lsmkroom(s1,3);
  *       3 == lsavil(s1);
  * @note
- *      参见struct logstr定义
+ *      参见struct _log_str定义
  * @see
  *      lsresize,lssize,lslen,lsavil,lsmemsize
  */
@@ -226,7 +247,7 @@ lssize(const ls_t ls);
  * @brief
  *      返回logstr字符串所占用的内存空间尺寸。包括字符串尺寸以及结构本身的内存。
  * @exzample
- *      lsmemsize(s) == lssize(s)+sizeof(struct logstr)+1
+ *      lsmemsize(s) == lssize(s)+sizeof(struct _log_str)+1
  * @see
  *      lslen,lsavil,lssize
  */
@@ -286,6 +307,26 @@ lscpy(ls_t ls,const char* str);
  */
 ls_t
 lscpyls(ls_t ls, const ls_t str);
+
+
+int
+lsfind(ls_t ls, const char* str ,int offset);
+
+
+int
+lsfindls(ls_t ls, const ls_t str, int offset);
+
+
+ls_t
+lssubls(const ls_t ls, int begin, int end);
+
+
+ls_t
+lsdiv(ls_t ls, const char* div);
+
+
+ls_t
+lsdivls(ls_t ls, const ls_t div);
 
 
 /**

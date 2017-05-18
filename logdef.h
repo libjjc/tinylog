@@ -1,6 +1,9 @@
 #ifndef TINYLOG_LOGDEF_HH
 #define TINYLOG_LOGDEF_HH
 
+#include <time.h>
+
+
 #if defined(__bool_true_false_are_defined)
 #else
 //enum _Bool{
@@ -29,6 +32,13 @@
 #define EN_INFO		    "INFO"
 #define EN_DEBUG		"DEBUG"
 #define EN_NOTSET		"NOTSET"
+
+
+#define LOG_PTN_DT_DEFAULT    "%Y-%m-%d %H:%M:%S"
+#define LOG_PTN_SIMPLE
+#define LOG_PTN_DEFAULT
+#define LOG_PTN_RICH
+
 
 
 #endif//TINYLOG_LOGDEF_HH

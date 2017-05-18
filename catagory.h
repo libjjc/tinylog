@@ -7,16 +7,16 @@
 #define MAX_CATAGORY_CHILDREN 16
 #define MAX_CATAGORY_ADAPTERS 16
 
-struct adapter;
+struct _adapter;
 
-struct catagory {
+struct _catagory {
     int priority;
     int countAdapters;
     int countChildren;
     ls_t name;
-    struct catagory* parent;
-    struct catagory* children[MAX_CATAGORY_CHILDREN];
-    struct adapter* adapters[MAX_CATAGORY_ADAPTERS];
+    struct _catagory* parent;
+    struct _catagory* children[MAX_CATAGORY_CHILDREN];
+    struct _adapter* adapters[MAX_CATAGORY_ADAPTERS];
     char eoc[];
 };
 
@@ -31,34 +31,34 @@ smaller_filter(int priorityMsg, int priorityAda);
 bool 
 equal_filter(int priorityMsg, int priorityAda);
 
-struct catagory*
-createCatagory(struct catagory* parent,int priority,const char* name);
+struct _catagory*
+createCatagory(struct _catagory* parent,int priority,const char* name);
 
-struct catagory*
+struct _catagory*
 createNullCatagory();
 
 void
-freeCatagory(struct catagory* cg);
+freeCatagory(struct _catagory* cg);
 
 int
-addCatagory(struct catagory* parent, struct catagory* child);
+addCatagory(struct _catagory* parent, struct _catagory* child);
 
 int
-removeCatagory(struct catagory* parent, struct catagory* child);
+removeCatagory(struct _catagory* parent, struct _catagory* child);
 
-struct catagory*
-findCatagory(struct catagory* parent, const char* name);
-
-int
-addAdapter(struct catagory* cg, struct adapter* ada);
+struct _catagory*
+findCatagory(struct _catagory* parent, const char* name);
 
 int
-removeAdapter(struct catagory* cg, struct adapter* ada);
+addAdapter(struct _catagory* cg, struct _adapter* ada);
+
+int
+removeAdapter(struct _catagory* cg, struct _adapter* ada);
 
 bool
-hasAdapter(struct catagory* cq, struct adapter* ada);
+hasAdapter(struct _catagory* cq, struct _adapter* ada);
 
 int
-capacityLogging(struct catagory* cata, struct logmsg* msg);
+capacityLogging(struct _catagory* cata, struct _log_msg* msg);
 
 #endif//LOG_CATAGORY_HH

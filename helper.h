@@ -5,9 +5,6 @@
 #include <stdbool.h>
 #include "logstr.h"
 
-time_t
-timestamp();
-
 ls_t
 strtimenow(const char* fmt);
 

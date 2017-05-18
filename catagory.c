@@ -1,6 +1,6 @@
 #include "logdef.h"
 #include "catagory.h"
-#include "logadapter.h"
+#include "adapter.h"
 #include <malloc.h>
 #include <string.h>
 
@@ -19,10 +19,10 @@ equal_filter(int priorityMsg, int priorityAda){
     return priorityMsg == priorityAda;
 }
 
-struct catagory*
-createCatagory(struct catagory* parent, int priority, const char* name){
-    struct catagory* cg;
-    cg = (struct catagory*)malloc(sizeof(struct catagory) + 1);
+struct _catagory*
+createCatagory(struct _catagory* parent, int priority, const char* name){
+    struct _catagory* cg;
+    cg = (struct _catagory*)malloc(sizeof(struct _catagory) + 1);
     if (!cg) return NULL;
     cg->parent = parent;
     cg->priority = priority;
@@ -36,10 +36,10 @@ createCatagory(struct catagory* parent, int priority, const char* name){
     return cg;
 }
 
-struct catagory*
+struct _catagory*
 createNullCatagory(){
-    struct catagory* cg;
-    cg = (struct catagory*)malloc(sizeof(struct catagory) + 1);
+    struct _catagory* cg;
+    cg = (struct _catagory*)malloc(sizeof(struct _catagory) + 1);
     if (!cg) return NULL;
     cg->parent = NULL;
     cg->priority = TLL_NOTSET;
@@ -50,11 +50,11 @@ createNullCatagory(){
 }
 
 void 
-freeCatagory(struct catagory* cg){
+freeCatagory(struct _catagory* cg){
     if (!cg){
         if(cg->name)lsfree(cg->name);
         for (int i = 0; i < cg->countAdapters; i++){
-            struct adapter* ada = cg->adapters[i];
+            struct _adapter* ada = cg->adapters[i];
             (*ada->free)(ada);
         }
         for (int i = 0; i < cg->countChildren; i++){
@@ -65,7 +65,7 @@ freeCatagory(struct catagory* cg){
 }
 
 int
-addCatagory(struct catagory* parent, struct catagory* child){
+addCatagory(struct _catagory* parent, struct _catagory* child){
     if (parent&&child){
         parent->children[parent->countChildren] = child;
         parent->countChildren++;
@@ -75,7 +75,7 @@ addCatagory(struct catagory* parent, struct catagory* child){
 }
 
 int
-removeCatagory(struct catagory* parent, struct catagory* child){
+removeCatagory(struct _catagory* parent, struct _catagory* child){
     if (!parent || !child) return -1;
     int index = 0;
     for (; index <= parent->countChildren; index++){
@@ -88,7 +88,7 @@ removeCatagory(struct catagory* parent, struct catagory* child){
     char* s = (char*)&parent->children[0];
     char* e = (char*)&parent->children[MAX_CATAGORY_CHILDREN];
     char* p = (char*)&parent->children[index];
-    if (memmove_s(p, s - p, p + sizeof(struct catagory*), s - p - 1)){
+    if (memmove_s(p, s - p, p + sizeof(struct _catagory*), s - p - 1)){
         return -1;
     }
     parent->countChildren--;
@@ -96,9 +96,9 @@ removeCatagory(struct catagory* parent, struct catagory* child){
     return 0;
 }
 
-struct catagory*
-findCatagory(struct catagory* parent, const char* name){
-    struct catagory* cg = NULL;
+struct _catagory*
+findCatagory(struct _catagory* parent, const char* name){
+    struct _catagory* cg = NULL;
     if (!parent) return cg;
     for (int i = 0; i <= parent->countChildren; i++){
         if (!parent->children[i] && parent->children[i]->name && !lscmp(parent->children[i]->name, name)){
@@ -110,7 +110,7 @@ findCatagory(struct catagory* parent, const char* name){
 }
 
 int
-addAdapter(struct catagory* cg, struct adapter* ada){
+addAdapter(struct _catagory* cg, struct _adapter* ada){
     if (!cg || !ada) return -1;
     cg->adapters[cg->countAdapters] = ada;
     cg->countAdapters++;
@@ -118,7 +118,7 @@ addAdapter(struct catagory* cg, struct adapter* ada){
 }
 
 int
-removeAdapter(struct catagory* cg, struct adapter* ada){
+removeAdapter(struct _catagory* cg, struct _adapter* ada){
     if (!cg || !ada) return -1;
     int index = 0;
     for (; index <= cg->countAdapters; index++){
@@ -131,7 +131,7 @@ removeAdapter(struct catagory* cg, struct adapter* ada){
     char* s = (char*)&cg->adapters[0];
     char* e = (char*)&cg->adapters[MAX_CATAGORY_ADAPTERS];
     char* p = (char*)&cg->adapters[index];
-    if (memmove_s(p, s - p, p + sizeof(struct adapter*), s - p - 1)){
+    if (memmove_s(p, s - p, p + sizeof(struct _adapter*), s - p - 1)){
         return -1;
     }
     cg->countAdapters--;
@@ -140,7 +140,7 @@ removeAdapter(struct catagory* cg, struct adapter* ada){
 }
 
 bool
-hasAdapter(struct catagory* cg, struct adapter* ada){
+hasAdapter(struct _catagory* cg, struct _adapter* ada){
     if (!cg || !ada) return false;
     int index = 0;
     for (; index <= cg->countAdapters; index++){
@@ -153,12 +153,12 @@ hasAdapter(struct catagory* cg, struct adapter* ada){
 }
 
 int
-capacityLogging(struct catagory* cata, struct logmsg* msg){
+capacityLogging(struct _catagory* cata, struct _log_msg* msg){
     if (!cata || !msg) return -1;
     int ret = 0;
     for (int i = 0; i < cata->countAdapters; i++){
-        struct adapter* adapter = cata->adapters[i];
-        ret &= (*adapter->handler)(adapter, msg);
+        struct _adapter* adapter = cata->adapters[i];
+        ret &= (*adapter->accept)(adapter, msg);
     }
     for (int i = 0; i < cata->countChildren;i++){
         ret &= capacityLogging(cata->children[i], msg);

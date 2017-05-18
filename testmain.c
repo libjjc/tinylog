@@ -4,9 +4,16 @@
 #include <fcntl.h>
 #include "tinylog.h"
 #include "catagory.h"
-#include "logadapter.h"
+#include "adapter.h"
 #include "logdef.h"
+#include <string.h>
 int main(int argc, char** argv){
+
+    const char* s5 = "1234567";
+    const char* s6 = "567";
+    const char* s7 = "789";
+    char* r = strstr(s5, s6);
+    r = strstr(s5, s7);
     ls_t s1, s2, s3, s4;
     s1 = lsinit('a', 12);
     s2 = lscreate("Hello World!", 12);
@@ -59,8 +66,8 @@ int main(int argc, char** argv){
 	_write(fd, "end\n", 4);
 	_close(fd);
     tlinit();
-    struct catagory* error = createCatagory(root(), TLL_ERROR, "error test");
-    struct catagory* warn = createCatagory(root(), TLL_WARN, "warn test");
+    struct _catagory* error = createCatagory(root(), TLL_ERROR, "error test");
+    struct _catagory* warn = createCatagory(root(), TLL_WARN, "warn test");
     createConsoleAdapter(error, "console.error");
     createFileAdapter(warn, "d:/1.txt", "file.warn",100);
     //fprintf(stdout, "%s", "hello world!");

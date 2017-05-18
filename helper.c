@@ -1,4 +1,4 @@
-#include "loghelper.h"
+#include "helper.h"
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -27,11 +27,6 @@ static const char* num_61[61] = {
 
 #define num_to_str(str,num,digit)\
     memcpy_s(str,(digit),&num_str_100[2*(num)],(digit));
-
-time_t
-timestamp(){
-    return time(0);
-}
 
 ls_t
 strtimenow(const char* fmt){

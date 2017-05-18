@@ -31,12 +31,12 @@
 #ifdef _LSP
 #undef _LSP
 #else
-#define _LSP(s) ((struct logstr*)(s-sizeof(struct logstr)))
+#define _LSP(s) ((struct _log_str*)(s-sizeof(struct _log_str)))
 #endif//_LSP
 
 ls_t 
 lsinit(char c, int len){
-    struct logstr* s = malloc(sizeof(struct logstr)+len+1);
+    struct _log_str* s = malloc(sizeof(struct _log_str)+len+1);
     if (!s) return 0;
     memset(&s->str[0], c, len);
     s->str[len] = 0;
@@ -49,7 +49,7 @@ ls_t
 lsinitcpy(const char* str){
     if (!str) return NULL;
     int len = strlen(str);
-    struct logstr* s = (struct logstr*)malloc(sizeof(struct logstr)+len+1);
+    struct _log_str* s = (struct _log_str*)malloc(sizeof(struct _log_str)+len+1);
     if (!s) return 0;
     memcpy_s(&s->str[0],len,str, len);
     s->str[len] = 0;
@@ -61,7 +61,7 @@ lsinitcpy(const char* str){
 ls_t
 lsinitcpyls(const ls_t ls){
     if (!ls) return NULL;
-    struct logstr* s = (struct logstr*)malloc(lsmemsize(ls));
+    struct _log_str* s = (struct _log_str*)malloc(lsmemsize(ls));
     if (!s) return 0;
     memcpy_s(&s->str[0],lssize(ls),ls, lslen(ls));
     s->str[lslen(ls)] = 0;
@@ -72,7 +72,7 @@ lsinitcpyls(const ls_t ls){
 
 ls_t 
 lsmkempty(){
-    struct logstr* s = malloc(sizeof(struct logstr) + 1);
+    struct _log_str* s = malloc(sizeof(struct _log_str) + 1);
     s->len = s->free = 0;
     s->str[s->len] = 0;
     return &s->str[0];
@@ -85,7 +85,7 @@ lsinitfmt(char* fmt, ...){
 	_crt_va_start(args, fmt);
     char* buffer = _ls_va_buffer(&size, fmt, args);
     if (!buffer) return NULL;
-    struct logstr* s = (struct logstr*)malloc(sizeof(struct logstr) + size + 1);
+    struct _log_str* s = (struct _log_str*)malloc(sizeof(struct _log_str) + size + 1);
     if (!s) {
         free(buffer);
         return NULL;
@@ -100,11 +100,11 @@ lsinitfmt(char* fmt, ...){
 
 ls_t 
 lscreate(const void* str, int len){
-    struct logstr* s;
+    struct _log_str* s;
     if (str){
-        s = (struct logstr*)malloc(sizeof(struct logstr) + len + 1);
+        s = (struct _log_str*)malloc(sizeof(struct _log_str) + len + 1);
     }else{
-        s = (struct logstr*)calloc(1, sizeof(struct logstr) + len + 1);
+        s = (struct _log_str*)calloc(1, sizeof(struct _log_str) + len + 1);
     }
     if (str && len){
         memcpy_s(&s->str[0],len, str, len);
@@ -118,8 +118,8 @@ lscreate(const void* str, int len){
 ls_t 
 lsmkroom(ls_t ls, int room){
     if (lsavil(ls) >= room)return ls;
-    struct logstr* s;
-    s = (struct logstr*)realloc(_LSP(ls), lslen(ls)+room+ 1);
+    struct _log_str* s;
+    s = (struct _log_str*)realloc(_LSP(ls), lslen(ls)+room+ 1);
     s->free += room;
     return &s->str[0];
 }
@@ -127,7 +127,7 @@ lsmkroom(ls_t ls, int room){
 void 
 lsfree(ls_t ls){
     if (!ls)return;
-    struct logstr* s = (struct logstr*)(ls - sizeof(struct logstr));
+    struct _log_str* s = (struct _log_str*)(ls - sizeof(struct _log_str));
     free(s);
 }
 
@@ -161,14 +161,14 @@ lssize(const ls_t ls){
 
 int 
 lsmemsize(const ls_t ls){
-    return sizeof(struct logstr) + lssize(ls) + 1;
+    return sizeof(struct _log_str) + lssize(ls) + 1;
 }
 
 ls_t 
 lsresize(ls_t ls, char c, int size){
-    struct logstr* s = _LSP(ls);
+    struct _log_str* s = _LSP(ls);
     if (lssize(ls) < size || lssize(ls) / 2 > size){
-        s = (struct logstr*)realloc(_LSP(ls), sizeof(struct logstr) + size);
+        s = (struct _log_str*)realloc(_LSP(ls), sizeof(struct _log_str) + size);
         if (!s) return NULL;
     }
     memset(&s->str[0], c, size);
@@ -187,9 +187,9 @@ lscpy(ls_t ls, const char* str){
 if (!ls) return 0;
     int new_len = str ? strlen(str): 0;
     int size = lssize(ls);
-    struct logstr* s = _LSP(ls);
+    struct _log_str* s = _LSP(ls);
     if (size < new_len){
-        s = (struct logstr*)realloc(_LSP(ls), sizeof(struct logstr) + new_len + 1);
+        s = (struct _log_str*)realloc(_LSP(ls), sizeof(struct _log_str) + new_len + 1);
         size = new_len;
     }
     if (!s) return NULL;
@@ -205,9 +205,9 @@ lscpyls(ls_t ls, const ls_t str){
     if (!ls) return 0;
     int new_len = str ? lslen(str) : 0;
     int size = lssize(ls);
-    struct logstr* s = _LSP(ls);
+    struct _log_str* s = _LSP(ls);
     if (size < new_len){
-        s = (struct logstr*)realloc(_LSP(ls), sizeof(struct logstr) + new_len + 1);
+        s = (struct _log_str*)realloc(_LSP(ls), sizeof(struct _log_str) + new_len + 1);
         size = new_len;
     }
     if (!s) return NULL;
@@ -216,6 +216,52 @@ lscpyls(ls_t ls, const ls_t str){
     s->free = size < new_len? 0: size-new_len;
     s->str[new_len] = 0;
     return &s->str[0];
+}
+
+int
+lsfind(ls_t ls, const char* str, int offset){
+    if (!ls || !str) return -1;
+    if (offset >= lslen(ls)) return -1;
+    int slen = strlen(str);
+    if (slen + offset > lslen(ls)) return -1;
+    for (int i = offset + slen; i < lslen(ls); i++){
+        while (slen-- > 0){
+            if (ls[i + slen] != str[slen]) break;
+        }
+        if (0 == slen) return i;
+    }
+    return -1;
+}
+
+int 
+lsfindls(ls_t ls, const ls_t str, int offset){
+    if (!ls || !str) return -1;
+    if (offset >= lslen(ls)) return -1;
+    int slen = lslen(str);
+    if (slen + offset > lslen(ls)) return -1;
+    for (int i = offset + slen; i < lslen(ls); i++){
+        while (slen-- >= 0){
+            if (ls[i + slen] != str[slen]) break;
+            if (0 == slen) return i;
+        }
+    }
+    return -1;
+}
+
+ls_t
+lssubls(const ls_t ls, int begin, int end){
+    if (end < begin){
+        return NULL;
+    }
+    int s = begin > lslen(ls) ? lslen(ls) : begin;
+    int e = end > lslen(ls) ? lslen(ls) : end;
+    struct _log_str* str = malloc(sizeof(struct _log_str) + end - begin + 1);
+    if (!str)return NULL;
+    memcpy_s(&str->str[0], e - s, &ls[s], e - s);
+    str->len = e - s;
+    str->free = 0;
+    str->str[str->len] = 0;
+    return &str->str[0];
 }
 
 int 
@@ -252,8 +298,8 @@ lscat(ls_t ls, const char* str){
         *lsend(ls) = 0;
         return &_LSP(ls)->str[0];
     }
-    struct logstr* s;
-    s = (struct logstr*)realloc(_LSP(ls), sizeof(struct logstr)+lssize(ls) + slen);
+    struct _log_str* s;
+    s = (struct _log_str*)realloc(_LSP(ls), sizeof(struct _log_str)+lssize(ls) + slen);
     if (!s) return NULL;
     if (memcpy_s(&s->str[s->len], slen, str, slen)) return NULL;
     s->len += slen, s->free = 0;
@@ -273,8 +319,8 @@ lscatls(ls_t ls, const ls_t str){
         *lsend(ls) = 0;
         return lsbegin(ls);
     }
-    struct logstr* s;
-    s = (struct logstr*)realloc(_LSP(ls), sizeof(struct logstr)+lssize(ls) + slen+1);
+    struct _log_str* s;
+    s = (struct _log_str*)realloc(_LSP(ls), sizeof(struct _log_str)+lssize(ls) + slen+1);
     if (!s) return NULL;
     if (memcpy_s(&s->str[s->len], slen, str, slen)) return NULL;
     s->len += slen, s->free = 0;
@@ -294,8 +340,8 @@ lscatlen(ls_t ls, const char* str, int len){
         *lsend(ls) = 0;
         return lsbegin(ls);
     }
-    struct logstr* s;
-    s = (struct logstr*)realloc(_LSP(ls), sizeof(struct logstr)+lssize(ls) + slen+1);
+    struct _log_str* s;
+    s = (struct _log_str*)realloc(_LSP(ls), sizeof(struct _log_str)+lssize(ls) + slen+1);
     if (!s) return NULL;
     if (memcpy_s(&s->str[s->len], slen, str, slen)) return NULL;
     s->len += slen, s->free = 0;
@@ -343,9 +389,9 @@ lscatfmt(ls_t ls, char* fmt, ...){
     _crt_va_start(args, fmt);
     char* buffer = _ls_va_buffer(&size, fmt, args);
     if (!buffer) return NULL;
-    struct logstr* s = _LSP(ls);
+    struct _log_str* s = _LSP(ls);
     if (lsavil(ls) < size){
-        if (!(s = (struct logstr*)realloc(_LSP(ls), sizeof(struct logstr) + lssize(ls) + size + 1))){
+        if (!(s = (struct _log_str*)realloc(_LSP(ls), sizeof(struct _log_str) + lssize(ls) + size + 1))){
             free(buffer);
             return 0;
         }
@@ -369,10 +415,10 @@ lsformat(ls_t ls,char* fmt, ...){
     _crt_va_start(args, fmt);
     char* buffer = _ls_va_buffer(&size, fmt, args);
     if (!buffer)return NULL;
-    struct logstr* s = _LSP(ls);
+    struct _log_str* s = _LSP(ls);
     if (lslen(ls) + lsavil(ls) < size){
-        struct logstr* s;
-        if (NULL == (s = (struct logstr*)realloc(_LSP(ls), sizeof(struct logstr)+size))){
+        struct _log_str* s;
+        if (NULL == (s = (struct _log_str*)realloc(_LSP(ls), sizeof(struct _log_str)+size))){
             free(buffer);
             return NULL;
         }

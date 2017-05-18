@@ -10,40 +10,40 @@ tlinit();
 void
 tlshutdown();
 
-struct catagory*
+struct _catagory*
 root();
 
 int 
 tlloadcfg(const char* config);
 
 void
-tllog(int priority, const char* msg);
+tllog(int priority, const char* msg, ...);
 
 void
-tlemerg(const char* msg);
+tlemerg(const char* msg, ...);
 
 void
-tlfatal(const char* msg);
+tlfatal(const char* msg, ...);
 
 void
-tlalert(const char* msg);
+tlalert(const char* msg, ...);
 
 void
-tlerror(const char* msg);
+tlerror(const char* msg, ...);
 
 void
-tlwarn(const char* msg);
+tlwarn(const char* msg, ...);
 
 void
-tlnotice(const char* msg);
+tlnotice(const char* msg, ...);
 
 void
-tlinfo(const char* msg);
+tlinfo(const char* msg, ...);
 
 void
-tldebug(const char* msg);
+tldebug(const char* msg, ...);
 
 void
-tlnotset(const char* msg);
+tlnotset(const char* msg, ...);
 
 #endif//TINY_LOG_HH
