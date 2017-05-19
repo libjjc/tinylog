@@ -1,13 +1,13 @@
-#include "layout.h"
-#include "adapter.h"
-#include "logdef.h"
-#include "logmsg.h"
 #include <string.h>
 #include <malloc.h>
 #include <stdbool.h>
 #include <time.h>
 #include <sys/timeb.h>
 #include <stdlib.h>
+#include "layout.h"
+#include "adapter.h"
+#include "logdef.h"
+#include "logmsg.h"
 
 #define layoutAddr(layout_type,callback)\
     (layout_type*)(&callback - (int)(((layout_type*)(NULL))->layout))
@@ -18,6 +18,7 @@ createPatternLayout(struct _adapter * ada,ls_t args){
     pl = (struct patternLayout*)malloc(sizeof(struct patternLayout));
     pl->pattern = lsinitcpyls(args);
     pl->layout = patternLayout;
+    timestamp(&pl->ts);
     if (ada) ada->layout = pl->layout;
     return pl->layout;
 }
@@ -130,18 +131,18 @@ patternLayout(layout_callback layout, struct _log_msg* msg){
                 message = lscatls(message, msg->s_prior);
                 break;
             case 'r':
+                message = lscatfmt(message, "%d", delta_ms_epoch(&msg->ts));
                 break;
             case 'R':
-                message = lscatfmt(message, "%d", msg->ts.sec);
+                message = lscatfmt(message, "%d", delta_s_epoch(&msg->ts));
                 break;
             case 't':
-                break;
                 message = lscat(message, "\\t");
+                break;
             case 'u':
-
+                message = lscatfmt(message, "%d", delta_ms(&ptl->ts,&msg->ts));
                 break;
             case 'x':
-
                 break;
             default:
                 message = lscatlen(message, p, 1);
@@ -157,6 +158,7 @@ layout_callback
 createBasicLayout(struct _adapter* ada){
     struct basicLayout* bl;
     bl = (struct basicLayout*)malloc(sizeof(struct basicLayout));
+    timestamp(&bl->ts);
     bl->layout = basicLayout;
     if (ada) ada->layout = bl->layout;
     return bl->layout;

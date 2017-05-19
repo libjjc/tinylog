@@ -1,10 +1,10 @@
 #ifndef LOG_ADAPTER_HH
 #define LOG_ADAPTER_HH
 
-#include "logstr.h"
-#include "layout.h"
 #include <time.h>
 
+#include "logstr.h"
+#include "layout.h"
 
 
 typedef void* adapter_arguments;
@@ -28,6 +28,8 @@ struct rollingFileAdapter{
     int mode;
     long index;
     long size;
+    long extw;
+    long rollingcount;
 	long rollingsize;
 };
 
@@ -77,7 +79,7 @@ int
 freeConsoleAdapter(struct _adapter* ada);
 
 struct _adapter*
-createRollingFileAdapter(struct _catagory* cata, ls_t name,const char* logfile,long rollingsize);
+createRollingFileAdapter(struct _catagory* cata, ls_t name,const char* logfile,long rollingsize,long rollingMax);
 
 int
 rollingFileAdapterAccept(struct _adapter* apt, struct _log_msg* msg);

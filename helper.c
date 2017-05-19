@@ -1,7 +1,7 @@
-#include "helper.h"
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include "helper.h"
 
 const char* num_str_100 = 
 "00010203040506070809"

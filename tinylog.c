@@ -1,25 +1,22 @@
+#include <string.h>
 #include "logdef.h"
 #include "tinylog.h"
 #include "adapter.h"
 #include "helper.h"
 #include "catagory.h"
 #include "logmsg.h"
-#include <string.h>
-
 struct _catagory gl_logger_root;
 
 void
-tlinit()
-{
+tlinit(){
 }
 
 void
-tlshutdown()
-{
+tlshutdown(){
 }
 
 struct _catagory *
-    root()
+root()
 {
     return &gl_logger_root;
 }

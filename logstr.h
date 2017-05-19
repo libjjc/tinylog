@@ -50,25 +50,15 @@ ls_t
 lsinitcpyls(const ls_t ls);
 
 ls_t
-lscpyfmt(const char* fmt, ...);
+lscpyfmt(ls_t ls,char* fmt, ...);
 
 ls_t
-lsrep(ls_t ls, const char* str);
+lsrep(ls_t ls, const char* old,const char* _rep);
 
 ls_t
-lsrepls(ls_t ls, const ls_t str);
+lsrepls(ls_t ls, const ls_t str,const ls_t _rep);
 
-ls_t
-lscatint(ls_t ls, int v);
 
-ls_t
-lscatflt(ls_t ls, float v);
-
-ls_t
-lscatdbl(ls_t ls, double v);
-
-ls_t
-lscati64(ls_t ls, __int64 v);
 
 
 /**
@@ -327,6 +317,18 @@ lsdiv(ls_t ls, const char* div);
 
 ls_t
 lsdivls(ls_t ls, const ls_t div);
+
+
+ls_t*
+lssplit(const ls_t ls, const char* sep, ls_t* lss, int *size);
+
+
+ls_t
+lsjoin(ls_t ls,ls_t* lss, int size);
+
+
+ls_t
+strjoin(const char* const ss, int size);
 
 
 /**

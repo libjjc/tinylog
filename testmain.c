@@ -8,7 +8,8 @@
 #include "logdef.h"
 #include <string.h>
 int main(int argc, char** argv){
-
+    int tf = _open("d:/test.txt", O_RDONLY, O_TEXT);
+    
     const char* s5 = "1234567";
     const char* s6 = "567";
     const char* s7 = "789";
@@ -57,6 +58,7 @@ int main(int argc, char** argv){
     lsfree(s2);
     lsfree(s3);
     lsfree(s4);
+    ls_t ss = lsinitfmt("%.*s", 9, "hello");
 
 	int fd = _open("d:/2.txt", O_APPEND | O_WRONLY | O_CREAT, O_TEXT | O_NOINHERIT);
 	_write(fd, "aaa\n", 4);

@@ -5,11 +5,8 @@
 
 #include "logdef.h"
 #include "logstr.h"
+#include "tick.h"
 
-struct _log_ts {
-    time_t sec;
-    long usec;
-};
 
 struct _log_msg {
     int prior;
@@ -19,8 +16,7 @@ struct _log_msg {
     struct _log_ts ts;
 };
 
-void
-timestamp(struct _log_ts* ts);
+
 
 
 

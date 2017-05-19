@@ -1,8 +1,9 @@
 #ifndef LOG_CATAGORY_HH
 #define LOG_CATAGORY_HH
 
-#include "logstr.h"
 #include <stdbool.h>
+#include "logdef.h"
+#include "logstr.h"
 
 #define MAX_CATAGORY_CHILDREN 16
 #define MAX_CATAGORY_ADAPTERS 16

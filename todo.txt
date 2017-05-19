@@ -1,10 +1,10 @@
-1.检查内存问题。（free），struct _log_msg,struct _capacity , struct _adapter;
-2.完善rollingFileAdapter
-3.完善patternLayout
-4.完善nteventlayout	？？？
-5.完善syslogLayout	？？？
+1.检查内存问题。（free），struct _log_msg,struct _capacity , struct _adapter;  [maybe ok]
+2.完善rollingFileAdapter						       [maybe ok]
+3.完善patternLayout							       [maybe ok]
+4.完善nteventlayout	??? todo or not ,that is a question
+5.完善syslogLayout	???
 6.完善contex功能
 7.完善config功能
-8.异常，错误的捕获与完善
+8.异常，错误的定义与完善
 9.线程安全
 a.性能优化

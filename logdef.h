@@ -40,5 +40,4 @@
 #define LOG_PTN_RICH
 
 
-
 #endif//TINYLOG_LOGDEF_HH

@@ -1,8 +1,9 @@
+
+#include <malloc.h>
+#include <string.h>
 #include "logdef.h"
 #include "catagory.h"
 #include "adapter.h"
-#include <malloc.h>
-#include <string.h>
 
 bool
 bigger_filter(int priorityMsg, int priorityAda){

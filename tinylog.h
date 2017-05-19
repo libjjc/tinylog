@@ -1,8 +1,8 @@
 #ifndef TINY_LOG_HH
 #define TINY_LOG_HH
-#include "logstr.h"
 #include <stdbool.h>
 
+#include "logstr.h"
 
 void 
 tlinit();

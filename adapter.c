@@ -8,6 +8,7 @@
 #include <malloc.h>
 #include <fcntl.h>
 #include <io.h>
+#include <math.h>
 
 #define allocAdapter(apt,args_type,args)\
     args_type* args = (args_type*)malloc(sizeof(args_type));\
@@ -25,6 +26,7 @@
 
 #define freeAdapter(adapter,args_type)\
     if(adapter && adapter->args){\
+        if(adapter->name)lsfree(adapter->name);\
         free((args_type*)adapter->args);\
         free(adapter);\
     }
@@ -65,17 +67,17 @@ fileAdapterAccept(struct _adapter* apt , struct _log_msg* msg){
         fa->fd = _open(fa->path, fa->flag | O_TRUNC | O_APPEND, fa->mode);
 		fa->size = 0;
 	}
-    return _write(fa->fd, ls, lslen(ls));
+    _write(fa->fd, ls, lslen(ls));
+    lsfree(ls);
+    return 0;
 }
 
 int 
 freeFileAdapter(struct _adapter* apt){
-    if (!apt) return -1;
-    struct fileAdapter* fa = (struct fileAdapter*)apt->args;
-    if (!fa || !fa->fd) return -1;
-    int ret = _close(fa->fd);
+    checkAdapter(apt, struct fileAdapter, args);
+    if (!args->fd) return -1;
+    int ret = _close(args->fd);
     if (ret)return ret;
-    struct fileAdapter* args = (struct fileAdapter*)apt->args;
     if (args->path) lsfree(args->path);
     freeAdapter(apt, struct fileAdapter);
     return 0;
@@ -101,7 +103,9 @@ consoleAdapterAccept(struct _adapter* apt ,struct _log_msg* msg){
     if (!apt || !apt->args) return -1;
     struct consoleAdapter* ca = (struct consoleAdapter*)apt->args;
     ls_t ls = (*apt->layout)(apt->layout,msg);
-    return fprintf((FILE*)ca->fd, "%s", ls);
+    fprintf((FILE*)ca->fd, "%s", ls);
+    lsfree(ls);
+    return 0;
 }
 
 int
@@ -118,7 +122,7 @@ freeConsoleAdapter(struct _adapter* apt){
 
 
 struct _adapter * 
-createRollingFileAdapter(struct _catagory * cata, ls_t name,const char* logfile , long rollingsize)
+createRollingFileAdapter(struct _catagory * cata, ls_t name,const char* logfile , long rollingsize,long rollingcount)
 {    
 	allocAdapter(apt,struct rollingFileAdapter,args)
 
@@ -126,25 +130,22 @@ createRollingFileAdapter(struct _catagory * cata, ls_t name,const char* logfile 
     args->rollingsize = rollingsize;
     args->flag = O_APPEND | O_WRONLY | O_CREAT;
     args->mode = O_TEXT | O_NOINHERIT;
-    args->index = 1;
-    int fd = 0;
-    ls_t path = lsinitfmt("%s_%d", args->path, args->index);
-    while (!_access(path, 0)){
-        args->index++;
-        path = lscpyfmt("%s_%d", args->path, args->index);
-        fd = _open(path, args->flag, args->mode);
-        long fsz = _filelength(fd);
-        if (fd&& fsz < rollingsize * 1024 * 1024){
-            args->fd = fd;
-            args->size = fsz;
+    args->index = 0;
+    args->rollingcount = rollingcount <= 0? 1: rollingcount;
+    args->extw = (long)log10(args->rollingcount) + 1;
+    ls_t back_path = lsinitcpyls(args->path);
+    for (; args->index < args->rollingcount; args->index++){
+        back_path = lscatfmt(back_path, ".%.*s",args->extw,args->index+1);
+        if (!_access(back_path, 0)){
+            break;
         }
     }
-    if (!args->fd){
-        fd = _open(path, args->flag, args->mode);
-    }
-   if (!_open(args->path, args->flag, args->mode)){
+    lsfree(back_path);
+    int fd = _open(args->path, args->flag, args->mode);
+    if (!fd){
         lsfree(args->path);
         freeAdapter(apt, struct rollingFileAdapter);
+        return NULL;
     }
 
     apt->name = lsinitcpy(name);
@@ -157,22 +158,51 @@ createRollingFileAdapter(struct _catagory * cata, ls_t name,const char* logfile 
 }
 
 int 
+rollingover(struct rollingFileAdapter* args){
+    if (!args) return -1;
+    ls_t back_path = lsinitfmt(args->path,".%.*d",args->extw,1);
+    if (args->index + 1 >= args->rollingcount){
+        remove(back_path);
+        for (int i = 1; i < args->rollingcount; i++){
+            ls_t path_old = lsinitfmt("%s.%.*d", args->path, i + 1);
+            if (!_access(path_old, 0)){
+                ls_t path_new = lsinitfmt("%s.%.*d", args->path, i);
+                rename(path_old, path_new);
+                lsfree(path_old);
+                lsfree(path_new);
+            } else{
+                break;
+            }
+        }
+        rename(args->path, back_path);
+        lsfree(back_path);
+        return 0;
+    }
+    rename(args->path, back_path);
+    args->index++;
+    lsfree(back_path);
+    return 0;
+}
+
+int 
 rollingFileAdapterAccept(struct _adapter * apt, struct _log_msg * msg)
 {
     checkAdapter(apt, struct rollingFileAdapter, args);
     if (!args->fd) return -2;
     if (!msg) return 0;
     ls_t ls = (*apt->layout)(apt->layout,msg);
-	args->size += lslen(ls);
-	if (args->size >= args->rollingsize*1024*1024) {
+	if (args->size + lslen(ls) >= args->rollingsize*1024*1024) {
         _close(args->fd);
-
-        //todo
-        //reopen another file
-        //args->fd = _open(args->path, args->flag | O_TRUNC | O_APPEND, args->mode);
+        rollingover(args);
 		args->size = 0;
+        args->fd = _open(args->path, args->flag, args->mode);
+        if (!args->fd) {
+            lsfree(ls);
+            return -2;
+        }
 	}
     _write(args->fd, ls, lslen(ls));
+    args->size += strlen(ls);
     lsfree(ls);
 	return 0;
 }
@@ -180,6 +210,10 @@ rollingFileAdapterAccept(struct _adapter * apt, struct _log_msg * msg)
 int 
 freeRollingFileAdapter(struct _adapter * apt)
 {
+    checkAdapter(apt, struct rollingFileAdapter,args);
+    if (args->fd) _close(args->fd);
+    if (args->path) lsfree(args->path);
+    freeAdapter(apt,struct rollingFileAdapter);
 	return 0;
 }
 

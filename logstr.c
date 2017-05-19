@@ -1,10 +1,11 @@
-#include "logstr.h"
 #include <string.h>
 #include <malloc.h>
 #include <memory.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
 #include <vadefs.h>
+#include "logstr.h"
 #if defined(_MSC_VER)
 #define VSNPRINTF _vsnprintf
 #if _MSC_VER > 1900
@@ -70,12 +71,61 @@ lsinitcpyls(const ls_t ls){
     return &s->str[0];
 }
 
+ls_t
+lscpyfmt(ls_t ls,char* fmt, ...){
+    int size = 0;
+    va_list args;
+	_crt_va_start(args, fmt);
+    char* buffer = _ls_va_buffer(&size, fmt, args);
+    if (!buffer) return ls;
+    return lscatlen(ls, buffer, size);
+}
+
 ls_t 
 lsmkempty(){
     struct _log_str* s = malloc(sizeof(struct _log_str) + 1);
     s->len = s->free = 0;
     s->str[s->len] = 0;
     return &s->str[0];
+}
+
+ls_t lsrep(ls_t ls, const char* str , const char* _rep){
+    if (!ls || !str) return ls;
+    int slen = strlen(str), pos = 0,rlen = strlen(_rep);
+    while (-1 != (pos = lsfind(ls, str, pos))){
+        if (!(ls = lsmkroom(ls, slen))) return ls;
+        if (memmove_s(&ls[pos + rlen], lssize(ls) - pos - rlen, &ls[pos], lslen(ls) - pos - slen)){
+            return ls;
+        }
+        if (memcpy_s(&ls[pos], rlen, _rep, rlen)){
+            return ls;
+        }
+        _LSP(ls)->len += rlen - slen;
+        _LSP(ls)->free -= rlen - slen;
+        *lsend(ls) = 0;
+        pos += rlen;
+    }
+    return ls;
+}
+
+ls_t
+lsrepls(ls_t ls, const ls_t str , const ls_t rep){
+    if (!ls || !str) return ls;
+    int slen = lslen(str), pos = 0,rlen = lslen(rep);
+    while (-1 != (pos = lsfind(ls, str, pos))){
+        if (!(ls = lsmkroom(ls, slen))) return ls;
+        if (memmove_s(&ls[pos + rlen], lssize(ls) - pos - rlen, &ls[pos], lslen(ls) - pos - slen)){
+            return ls;
+        }
+        if (memcpy_s(&ls[pos], rlen, rep, rlen)){
+            return ls;
+        }
+        _LSP(ls)->len += rlen - slen;
+        _LSP(ls)->free -= rlen - slen;
+        *lsend(ls) = 0;
+        pos += rlen;
+    }
+    return ls;
 }
 
 ls_t 
@@ -264,6 +314,39 @@ lssubls(const ls_t ls, int begin, int end){
     return &str->str[0];
 }
 
+
+ls_t *
+lssplit(const ls_t ls, const char* sep, ls_t* lss, int* size){
+    const char* p = ls;
+    const char* s = ls;
+    int szls = 0;
+    while (*p){
+        if (strchr(sep, *p)){
+            if (p != s && p - s > 1){
+                szls++;
+                if (szls >= *size){
+                    *size *= 2;
+                    ls_t * ss = (ls_t*)realloc(lss, sizeof(ls_t)*(*size));
+                    if (!ss){
+                        while (*size-- > 0) lsfree(lss[*size]);
+                        free(lss);
+                        return NULL;
+                    }
+                }
+                if (!(lss[szls] = lscreate(s, p - s))){
+                    while (*size-- > 0) lsfree(lss[*size]);
+                    free(lss);
+                    return NULL;
+                }
+            }
+            s = p;
+        }
+        p++;
+    }
+    return lss;
+}
+
+
 int 
 lscmp(const ls_t left, const char* right){
     if (!left) return right ? -1 : 0;
@@ -435,7 +518,7 @@ lsformat(ls_t ls,char* fmt, ...){
 char* 
 _ls_va_buffer(int* size, char* fmt, va_list args){
     if (!fmt||!size) return NULL;
-    *size = 512;
+    *size = *size ? *size : 512;
     char* buf = (char*)malloc(sizeof(char)*(*size));
 
     while (1) {
