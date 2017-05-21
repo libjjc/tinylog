@@ -14,7 +14,7 @@ configure(const char* config){
 
     if (!fd) return -1;
 
-    int flen = filelength(fd);
+    int flen = _filelength(fd);
 
     if (flen == (long)-1) return -1;
 
@@ -48,14 +48,34 @@ configure(const char* config){
 }
 
 int 
-lsconfigure(ls_t ls){
+lineconfigure(ls_t ls){
     int size = 8;
     ls_t* lss = (ls_t*)malloc(sizeof(ls_t*)* size);
     lss = lssplit(ls, ",. ", lss, &size);
     if (!lss) return -1;
-
+	for (int i = 0; i < size; i++) {
+		
+	}
     while (--size >= 0)lsfree(lss[size]);
     free(lss);
     return 0;
+}
+
+int 
+_config_root(int argc, char ** argv)
+{
+	return 0;
+}
+
+int 
+_config_catagory(const char * name, int argc, char ** argv)
+{
+	return 0;
+}
+
+int 
+_config_adapter(const char * name, int argc, char ** argv)
+{
+	return 0;
 }
 
