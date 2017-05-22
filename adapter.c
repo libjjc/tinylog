@@ -30,9 +30,31 @@ _create_null_adapter(){
     return apt->accept;
 }
 
+const ls_t 
+_get_apt_name(adapter_accept apt){
+	return _adapteraddr(apt)->name;
+}
+
 adapter_free
 _get_apt_free(adapter_accept apt){
     return _adapteraddr(apt)->free;
+}
+
+layout_callback 
+_get_apt_layout(adapter_accept apt)
+{
+	return _adapteraddr(apt)->layout;
+}
+
+int 
+_set_apt_name(adapter_accept apt,const char* name)
+{
+	struct _adapter* _apt = _adapteraddr(apt);
+	if (_apt->name) {
+		lsfree(_apt->name);
+	}
+	_apt->name = lscreate(name, strlen(name));
+	return 0;
 }
 
 int

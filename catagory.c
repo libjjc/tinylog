@@ -52,8 +52,10 @@ createNullCatagory(const char* name){
     return cg;
 }
 
+
+
 struct _catagory*
-get_catagory_create(const char* parent,const char* name){
+get_create_catagory(const char* parent,const char* name){
     struct _catagory* parent_cata = NULL;
     struct _catagory* cata = NULL;
     if (!parent_cata){
@@ -77,8 +79,11 @@ freeCatagory(struct _catagory* cg){
     if (!cg){
         if(cg->name)lsfree(cg->name);
         for (int i = 0; i < cg->countAdapters; i++){
-            struct _adapter* ada = cg->adapters[i];
-            (*ada->free)(ada);
+            adapter_accept apt = cg->adapters[i];
+			adapter_free free = _get_apt_free(apt);
+			if (free) {
+				free(apt);
+			}
         }
         for (int i = 0; i < cg->countChildren; i++){
             freeCatagory(cg->children[i]);
@@ -133,15 +138,15 @@ findCatagory(struct _catagory* parent, const char* name){
 }
 
 int
-addAdapter(struct _catagory* cg, struct _adapter* ada){
-    if (!cg || !ada) return -1;
-    cg->adapters[cg->countAdapters] = ada;
+addAdapter(struct _catagory* cg, adapter_accept apt){
+    if (!cg || !apt) return -1;
+    cg->adapters[cg->countAdapters] = apt;
     cg->countAdapters++;
     return 0;
 }
 
 int
-removeAdapter(struct _catagory* cg, struct _adapter* ada){
+removeAdapter(struct _catagory* cg, adapter_accept ada){
     if (!cg || !ada) return -1;
     int index = 0;
     for (; index <= cg->countAdapters; index++){
@@ -163,7 +168,7 @@ removeAdapter(struct _catagory* cg, struct _adapter* ada){
 }
 
 bool
-hasAdapter(struct _catagory* cg, struct _adapter* ada){
+hasAdapter(struct _catagory* cg, adapter_accept ada){
     if (!cg || !ada) return false;
     int index = 0;
     for (; index <= cg->countAdapters; index++){
@@ -180,8 +185,8 @@ capacityLogging(struct _catagory* cata, struct _log_msg* msg){
     if (!cata || !msg) return -1;
     int ret = 0;
     for (int i = 0; i < cata->countAdapters; i++){
-        struct _adapter* adapter = cata->adapters[i];
-        ret &= (*adapter->accept)(adapter, msg);
+        adapter_accept adapter = cata->adapters[i];
+        ret &= adapter(adapter, msg);
     }
     for (int i = 0; i < cata->countChildren;i++){
         ret &= capacityLogging(cata->children[i], msg);
@@ -194,12 +199,12 @@ has_apt_recursive(struct _catagory* cq, struct _adapter* apt){
     return false;
 }
 
-struct _adapter*
+adapter_accept*
 find_adapter(struct _catagory* cq, const char* aptname){
-    struct _adapter* apt = NULL;
+    adapter_accept apt = NULL;
     for (int i = 0; i < cq->countAdapters; i++){
         apt = cq->adapters[i];
-        if (apt) return apt;
+        if (!lscmp(_get_apt_name(apt),aptname)) return apt;
     }
     for (int i = 0; i < cq->countChildren; i++){
         apt = find_adapter(cq->children[i], aptname);

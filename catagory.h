@@ -8,7 +8,7 @@
 #define MAX_CATAGORY_CHILDREN 16
 #define MAX_CATAGORY_ADAPTERS 16
 
-struct _adapter;
+;
 
 struct _catagory {
     int priority;
@@ -17,7 +17,7 @@ struct _catagory {
     ls_t name;
     struct _catagory* parent;
     struct _catagory* children[MAX_CATAGORY_CHILDREN];
-    struct _adapter* adapters[MAX_CATAGORY_ADAPTERS];
+    _callback_ptr adapters[MAX_CATAGORY_ADAPTERS];
     char eoc[];
 };
 
@@ -39,7 +39,7 @@ struct _catagory*
 createNullCatagory(const char* name);
 
 struct _catagory*
-get_catagory_create(const char* parent,const char* name);
+get_create_catagory(const char* parent,const char* name);
 
 void
 freeCatagory(struct _catagory* cg);
@@ -54,18 +54,18 @@ struct _catagory*
 findCatagory(struct _catagory* parent, const char* name);
 
 int
-addAdapter(struct _catagory* cg, struct _adapter* ada);
+addAdapter(struct _catagory* cg, callback_ptr ada);
 
 int
-removeAdapter(struct _catagory* cg, struct _adapter* ada);
+removeAdapter(struct _catagory* cg, callback_ptr ada);
 
 bool
-hasAdapter(struct _catagory* cq, struct _adapter* ada);
+hasAdapter(struct _catagory* cq, callback_ptr ada);
 
 bool
-has_apt_recursive(struct _catagory* cq, struct _adapter* apt);
+has_apt_recursive(struct _catagory* cq, callback_ptr apt);
 
-struct _adapter*
+callback_ptr
 find_adapter(struct _catagory* cq, const char* aptname);
 
 int

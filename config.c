@@ -76,7 +76,7 @@ parse_script_tree( struct _log_script_tree* tree){
     right = &tree->_right;
     if (lscmp(left->words[0], TINYLOG_PREFIX)) return -2;
     if (!lscmp(left->words[1], TINYLOG_TYPE_ROOT)){
-        parse_script_catagory(tree);
+        parse_script_root(tree);
     }else if(!lscmp(left->words[1], TINYLOG_TYPE_CATAGORY)){
         parse_script_catagory(tree);
     } else if (!lscmp(left->words[1], TINYLOG_TYPE_ADAPTER)){
@@ -95,7 +95,20 @@ parse_script_tree( struct _log_script_tree* tree){
 
 int
 parse_script_root(struct _log_script_tree* tree){
-    
+	struct _log_script_leaf* left, *right;
+    left = &tree->_left;
+    right = &tree->_right;
+	if (left->count > 2) {
+		return -2;
+	}
+	if (right->count >= 1) {
+		root()->priority = get_priority(right->words[0]);
+	}
+	if (right->count >= 2) {
+		for (int i = 0; i < right->count; i++) {
+			_create_null_adapter();
+		}
+	}
     return 0;
 }
 
@@ -107,7 +120,7 @@ parse_script_catagory(struct _log_script_tree* tree){
     if (left->count > 2)return -2;
     struct _catagory* cata = NULL;
     for (int i = 2; i < left->count; i++){
-        cata = get_catagory_create(cata->name, left->words[i]);
+        cata = get_create_catagory(cata->name, left->words[i]);
     }
     cata = findCatagory(root(), tree->words[2]);
     if (!cata) return -1;

@@ -5,8 +5,8 @@
 #include <stdbool.h>
 #include "logstr.h"
 #include "layout.h"
+#include "logdef.h"
 
-typedef void* _callback_ptr;
 typedef void* adapter_arguments;
 typedef int(*adapter_accept)(_callback_ptr,struct _log_msg*);
 typedef int(*adapter_free)(_callback_ptr);
@@ -59,8 +59,17 @@ struct _adapter {
 adapter_accept
 _create_null_adapter();
 
+const ls_t
+_get_apt_name(adapter_accept apt);
+
 adapter_free
 _get_apt_free(adapter_accept apt);
+
+layout_callback
+_get_apt_layout(adapter_accept apt);
+
+int
+_set_apt_name(adapter_accept apt,const char* name);
 
 int
 _set_apt_file(adapter_accept apt, const char* logfile);

@@ -39,5 +39,6 @@
 #define LOG_PTN_DEFAULT
 #define LOG_PTN_RICH
 
+typedef void* _callback_ptr;
 
 #endif//TINYLOG_LOGDEF_HH
