@@ -36,7 +36,10 @@ struct _catagory*
 createCatagory(struct _catagory* parent,int priority,const char* name);
 
 struct _catagory*
-createNullCatagory();
+createNullCatagory(const char* name);
+
+struct _catagory*
+get_catagory_create(const char* parent,const char* name);
 
 void
 freeCatagory(struct _catagory* cg);
@@ -58,6 +61,12 @@ removeAdapter(struct _catagory* cg, struct _adapter* ada);
 
 bool
 hasAdapter(struct _catagory* cq, struct _adapter* ada);
+
+bool
+has_apt_recursive(struct _catagory* cq, struct _adapter* apt);
+
+struct _adapter*
+find_adapter(struct _catagory* cq, const char* aptname);
 
 int
 capacityLogging(struct _catagory* cata, struct _log_msg* msg);

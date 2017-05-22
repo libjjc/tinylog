@@ -5,6 +5,8 @@
 #include "catagory.h"
 #include "adapter.h"
 
+extern struct _catagory gl_logger_root;
+
 bool
 bigger_filter(int priorityMsg, int priorityAda){
     return priorityMsg > priorityAda;
@@ -38,16 +40,36 @@ createCatagory(struct _catagory* parent, int priority, const char* name){
 }
 
 struct _catagory*
-createNullCatagory(){
+createNullCatagory(const char* name){
     struct _catagory* cg;
     cg = (struct _catagory*)malloc(sizeof(struct _catagory) + 1);
     if (!cg) return NULL;
     cg->parent = NULL;
     cg->priority = TLL_NOTSET;
-    cg->name = NULL;
+    cg->name = lscreate(name,strlen(name));
     cg->countAdapters = 0;
     cg->countChildren = 0;
     return cg;
+}
+
+struct _catagory*
+get_catagory_create(const char* parent,const char* name){
+    struct _catagory* parent_cata = NULL;
+    struct _catagory* cata = NULL;
+    if (!parent_cata){
+        parent_cata = &gl_logger_root;
+    } else{
+        parent_cata = findCatagory(&gl_logger_root, name);
+        if (!parent_cata){
+            parent_cata = createCatagory(&gl_logger_root, TLL_NOTSET, name);
+        }
+    }
+    if (!parent_cata) return NULL;
+    cata = findCatagory(&gl_logger_root, name);
+    if (!cata){
+        cata = createCatagory(parent_cata, TLL_NOTSET, name);
+    }
+    return cata;
 }
 
 void 
@@ -167,3 +189,21 @@ capacityLogging(struct _catagory* cata, struct _log_msg* msg){
     return ret;
 }
 
+bool
+has_apt_recursive(struct _catagory* cq, struct _adapter* apt){
+    return false;
+}
+
+struct _adapter*
+find_adapter(struct _catagory* cq, const char* aptname){
+    struct _adapter* apt = NULL;
+    for (int i = 0; i < cq->countAdapters; i++){
+        apt = cq->adapters[i];
+        if (apt) return apt;
+    }
+    for (int i = 0; i < cq->countChildren; i++){
+        apt = find_adapter(cq->children[i], aptname);
+        if (apt) return apt;
+    }
+    return apt;
+}

@@ -10,163 +10,179 @@
 #include <io.h>
 #include <math.h>
 
-#define allocAdapter(apt,args_type,args)\
-    args_type* args = (args_type*)malloc(sizeof(args_type));\
-    if(!args) return NULL;\
-    struct _adapter* apt = (struct _adapter*)malloc(sizeof(struct _adapter));\
-    if(!apt){\
-        free(args);\
-        return NULL;\
+#define DEFAULT_ACCEPT _console_apt_accept
+#define DEFAULT_FREE _free_console_apt
+
+#define _adapteraddr(apt)\
+    ((struct _adapter*)(&(apt) - (int)(((struct _adapter*)(NULL))->accept)))
+#define _adapterprop_free(apt,prop,fucfree)\
+    if(_adapteraddr(apt)->prop){\
+        fucfree(_adapteraddr(apt)->prop);\
     }
 
-#define checkAdapter(adapter , args_type , args)\
-    if(!adapter || !adapter->args) return -1;\
-    args_type* args = ( args_type*)adapter->args;
+adapter_accept
+_create_null_adapter(){
+    struct _adapter* apt =
+        (struct _adapter*)malloc(sizeof(struct _adapter*));
+    if (!apt) return NULL;
+    apt->accept = DEFAULT_ACCEPT;
+    apt->free = DEFAULT_FREE;
+    return apt->accept;
+}
 
+adapter_free
+_get_apt_free(adapter_accept apt){
+    return _adapteraddr(apt)->free;
+}
 
-#define freeAdapter(adapter,args_type)\
-    if(adapter && adapter->args){\
-        if(adapter->name)lsfree(adapter->name);\
-        free((args_type*)adapter->args);\
-        free(adapter);\
+int
+_set_apt_file(adapter_accept apt, const char* logfile){
+    if (_adapteraddr(apt)->_file.logfile = lscreate(logfile, strlen(logfile))){
+        return 0;
     }
+    return -1;
+}
 
+int
+_set_apt_fsize(adapter_accept apt, long maxsize){
+    _adapteraddr(apt)->maxsize = maxsize;
+    return 0;
+}
 
-struct _adapter*
-createFileAdapter(struct _catagory* cata ,const char* logfile,const char* name,int maxsize){
-	allocAdapter(apt, struct fileAdapter, args);
+int
+_set_apt_rcount(adapter_accept apt, long rcount){
+    _adapteraddr(apt)->rcount = rcount;
+    return 0;
+}
 
-    args->path = lsinitcpy(logfile);
-    args->maxsize = maxsize;
-    args->flag = O_APPEND | O_WRONLY | O_CREAT | O_TRUNC;
-    args->mode = O_TEXT | O_NOINHERIT;
+int
+_set_apt_dcount(adapter_accept apt, int days){
+    _adapteraddr(apt)->maxday = days;
+    return 0;
+}
 
+int
+_set_apt_dayfmt(adapter_accept apt, const char* fmt){
+    _adapteraddr(apt)->dayfmt = lscreate(fmt,strlen(fmt));
+    return 0;
+}
+
+int
+_set_apt_stream(adapter_accept apt, int stream){
+    _adapteraddr(apt)->_stream = stream;
+    return 0;
+}
+
+void
+_set_apt_layout(adapter_accept apt, layout_callback layout){
+    _adapteraddr(apt)->layout = layout;
+}
+
+adapter_accept
+_create_file_apt(struct _catagory* cata, const char* name, const char* logfile, int maxsize){
+    struct _adapter* apt =
+        (struct _adapter*)malloc(sizeof(struct _adapter*));
+    if (!apt) return NULL;
     apt->name = lsinitcpy(name);
-    apt->layout = basicLayout;
-    apt->accept = fileAdapterAccept;
-    apt->free = freeFileAdapter;
-    apt->args = (adapter_arguments)args;
-    if (args->fd = _open(args->path, args->flag, args->mode)){
-        freeAdapter(apt, struct fileAdapter);
+    apt->accept = _file_apt_accept;
+    apt->free = _free_file_apt;
+    if (apt->logfile = lscreate(logfile, strlen(logfile))){
+        free(apt);
         return NULL;
     }
-	args->size = (args->fd);
-    if (cata) addAdapter(cata, apt);
-    return apt;
-}
-
-int
-fileAdapterAccept(struct _adapter* apt , struct _log_msg* msg){
-    if (!apt) return -1;
-    struct fileAdapter* fa = (struct fileAdapter*)apt->args;
-    if (!fa || !fa->fd) return -2;
-    if (!msg) return -1;
-    ls_t ls = (*apt->layout)(apt->layout,msg);
-	fa->size += lslen(ls);
-	if (fa->size >= fa->maxsize*1024*1024) {
-        fa->fd = _open(fa->path, fa->flag | O_TRUNC | O_APPEND, fa->mode);
-		fa->size = 0;
-	}
-    _write(fa->fd, ls, lslen(ls));
-    lsfree(ls);
-    return 0;
-}
-
-int 
-freeFileAdapter(struct _adapter* apt){
-    checkAdapter(apt, struct fileAdapter, args);
-    if (!args->fd) return -1;
-    int ret = _close(args->fd);
-    if (ret)return ret;
-    if (args->path) lsfree(args->path);
-    freeAdapter(apt, struct fileAdapter);
-    return 0;
-}
-
-struct _adapter*
-createConsoleAdapter(struct _catagory* cata , ls_t name){
-    allocAdapter(apt, struct consoleAdapter, args);
-
-    args->fd = (int)stdout;
-
+    apt->maxsize = maxsize;
     apt->name = lsinitcpy(name);
     apt->layout = basicLayout;
-    apt->accept = consoleAdapterAccept;
-    apt->free = freeConsoleAdapter;
-    apt->args = (adapter_arguments)args;
+    apt->flag = O_APPEND | O_WRONLY | O_CREAT | O_TRUNC;
+    apt->mode = O_TEXT | O_NOINHERIT;
+
+    if (apt->fd = _open(apt->logfile, apt->flag, apt->mode)){
+        _adapterprop_free(apt, name, lsfree);
+        _adapterprop_free(apt, logfile, lsfree);
+        free(apt);
+        return NULL;
+    }
+    apt->fsize = _filelength(apt->fd);
     if (cata) addAdapter(cata, apt);
-    return apt;
+    return apt->accept;
 }
 
 int
-consoleAdapterAccept(struct _adapter* apt ,struct _log_msg* msg){
-    if (!apt || !apt->args) return -1;
-    struct consoleAdapter* ca = (struct consoleAdapter*)apt->args;
-    ls_t ls = (*apt->layout)(apt->layout,msg);
-    fprintf((FILE*)ca->fd, "%s", ls);
+_free_file_apt(adapter_accept apt){
+    _adapterprop_free(apt, name, lsfree);
+    _adapterprop_free(apt, logfile, lsfree);
+    free(_adapteraddr(apt));
+    return 0;
+}
+
+int
+_file_apt_accept(adapter_accept apt,struct _log_msg* msg){
+    if (!apt || !msg) return -1;
+    struct _adapter* _apt = _adapteraddr(apt);
+    ls_t ls = (_apt->layout)(_apt->layout,msg);
+	_apt->fsize += lslen(ls);
+	if (_apt->fsize >= _apt->maxsize*1024*1024) {
+        _apt->fd = _open(_apt->logfile, _apt->flag | O_TRUNC | O_APPEND, _apt->mode);
+		_apt->fsize = 0;
+	}
+    _write(_apt->fd, ls, lslen(ls));
     lsfree(ls);
     return 0;
 }
 
-int
-freeConsoleAdapter(struct _adapter* apt){
-    if (!apt || !apt->args) return -1;
-    struct consoleAdapter* ca = (struct consoleAdapter*)apt->args;
-    if (!ca->fd)return -2;
-    int ret = _close(ca->fd);
-    if (ret) return ret;
-    freeAdapter(apt, struct consoleAdapter);
-    return 0;
-}
 
 
-
-struct _adapter * 
-createRollingFileAdapter(struct _catagory * cata, ls_t name,const char* logfile , long rollingsize,long rollingcount)
-{    
-	allocAdapter(apt,struct rollingFileAdapter,args)
-
-    args->path = lsinitcpy(logfile);
-    args->rollingsize = rollingsize;
-    args->flag = O_APPEND | O_WRONLY | O_CREAT;
-    args->mode = O_TEXT | O_NOINHERIT;
-    args->index = 0;
-    args->rollingcount = rollingcount <= 0? 1: rollingcount;
-    args->extw = (long)log10(args->rollingcount) + 1;
-    ls_t back_path = lsinitcpyls(args->path);
-    for (; args->index < args->rollingcount; args->index++){
-        back_path = lscatfmt(back_path, ".%.*s",args->extw,args->index+1);
+adapter_accept
+_create_rfile_apt(struct _catagory* cata,const char* name, const char* logfile, long rsize, long rcount){
+    struct _adapter* apt =
+        (struct _adapter*)malloc(sizeof(struct _adapter*));
+    if (!apt) return NULL;
+    apt->logfile = lsinitcpy(logfile);
+    apt->name = lsinitcpy(name);
+    apt->fsize = rsize;
+    apt->flag = O_APPEND | O_WRONLY | O_CREAT;
+    apt->mode = O_TEXT | O_NOINHERIT;
+    apt->index = 0;
+    apt->rcount = rcount <= 0? 1: rcount;
+    apt->extw = (long)log10(apt->rcount) + 1;
+    ls_t back_path = lsinitcpyls(apt->logfile);
+    for (; apt->index < apt->rcount; apt->index++){
+        back_path = lscatfmt(back_path, ".%.*s",apt->extw,apt->index+1);
         if (!_access(back_path, 0)){
             break;
         }
     }
     lsfree(back_path);
-    int fd = _open(args->path, args->flag, args->mode);
+    int fd = _open(apt->logfile, apt->flag, apt->mode);
     if (!fd){
-        lsfree(args->path);
-        freeAdapter(apt, struct rollingFileAdapter);
+        _adapterprop_free(apt, name, lsfree);
+        _adapterprop_free(apt, logfile, lsfree);
+        free(apt);
         return NULL;
     }
 
-    apt->name = lsinitcpy(name);
     apt->layout = basicLayout;
-    apt->accept = rollingFileAdapterAccept;
-    apt->free = freeRollingFileAdapter;
-    apt->args = (adapter_arguments)args;
+    apt->accept = _rfile_apt_accept;
+    apt->free = _free_rfile_apt;
     if (cata) addAdapter(cata, apt);
-    return apt;
+    return apt->accept;
+}
+
+int
+_free_rfile_apt(adapter_accept apt){
+    return _free_file_apt(apt);
 }
 
 int 
-rollingover(struct rollingFileAdapter* args){
-    if (!args) return -1;
-    ls_t back_path = lsinitfmt(args->path,".%.*d",args->extw,1);
-    if (args->index + 1 >= args->rollingcount){
+_rolling_over(struct _adapter* apt){
+    if (!apt) return -1;
+    ls_t back_path = lsinitfmt(apt->logfile,".%.*d",apt->extw,1);
+    if (apt->index + 1 >= apt->rcount){
         remove(back_path);
-        for (int i = 1; i < args->rollingcount; i++){
-            ls_t path_old = lsinitfmt("%s.%.*d", args->path, i + 1);
+        for (int i = 1; i < apt->rcount; i++){
+            ls_t path_old = lsinitfmt("%s.%.*d", apt->logfile, i + 1);
             if (!_access(path_old, 0)){
-                ls_t path_new = lsinitfmt("%s.%.*d", args->path, i);
+                ls_t path_new = lsinitfmt("%s.%.*d", apt->logfile, i);
                 rename(path_old, path_new);
                 lsfree(path_old);
                 lsfree(path_new);
@@ -174,100 +190,65 @@ rollingover(struct rollingFileAdapter* args){
                 break;
             }
         }
-        rename(args->path, back_path);
+        rename(apt->logfile, back_path);
         lsfree(back_path);
         return 0;
     }
-    rename(args->path, back_path);
-    args->index++;
+    rename(apt->logfile, back_path);
+    apt->index++;
     lsfree(back_path);
     return 0;
 }
 
-int 
-rollingFileAdapterAccept(struct _adapter * apt, struct _log_msg * msg)
-{
-    checkAdapter(apt, struct rollingFileAdapter, args);
-    if (!args->fd) return -2;
-    if (!msg) return 0;
-    ls_t ls = (*apt->layout)(apt->layout,msg);
-	if (args->size + lslen(ls) >= args->rollingsize*1024*1024) {
-        _close(args->fd);
-        rollingover(args);
-		args->size = 0;
-        args->fd = _open(args->path, args->flag, args->mode);
-        if (!args->fd) {
+int
+_rfile_apt_accept(adapter_accept apt, struct _log_msg* msg){
+    if (!apt || !msg) return -1;
+    struct _adapter* _apt = _adapteraddr(apt);
+    ls_t ls = (_apt->layout)(_apt->layout,msg);
+	if (_apt->fsize + lslen(ls) >= _apt->maxsize*1024*1024) {
+        _close(_apt->fd);
+        _rolling_over(_apt);
+		_apt->fsize = 0;
+        _apt->fd = _open(_apt->logfile, _apt->flag, _apt->mode);
+        if (!_apt->fd) {
             lsfree(ls);
             return -2;
         }
 	}
-    _write(args->fd, ls, lslen(ls));
-    args->size += strlen(ls);
+    _write(_apt->fd, ls, lslen(ls));
+    _apt->fsize += strlen(ls);
     lsfree(ls);
 	return 0;
 }
 
-int 
-freeRollingFileAdapter(struct _adapter * apt)
-{
-    checkAdapter(apt, struct rollingFileAdapter,args);
-    if (args->fd) _close(args->fd);
-    if (args->path) lsfree(args->path);
-    freeAdapter(apt,struct rollingFileAdapter);
-	return 0;
+adapter_accept
+_create_console_apt(struct _catagory* cata,const char* name){
+    struct _adapter* apt =
+        (struct _adapter*)malloc(sizeof(struct _adapter*));
+    if (!apt) return NULL;
+    apt->name = lsinitcpy(name);
+    apt->accept = _console_apt_accept;
+    apt->free = _free_console_apt;
+    apt->name = lsinitcpy(name);
+
+    if (cata) addAdapter(cata, apt);
+    return apt->accept;
 }
 
-//struct _adapter*
-//createNetAdapter(struct _catagory* catagory,const char* ip, int port){
-//    return NULL;
-//}
-//
-//int
-//initNetAdapter(struct _adapter* apt, int argc, char** argv){
-//    return 0;
-//}
-//
-//int
-//netAdapterHandle(struct _adapter* apt, struct _log_msg* msg){
-//    return 0;
-//}
-//
-//int
-//netAdapterClose(struct _adapter* apt){
-//    return 0;
-//}
-//
-//void
-//freeNetAdapter(struct _adapter* apt){
-//    free(apt);
-//}
-//
-//struct _adapter*
-//createDBAdapter(struct _catagory* cata ,struct _adapter* apt){
-//    return NULL;
-//}
-//
-//int
-//initDBAdapter(struct _adapter* apt, int argc, char** argv){
-//    return 0;
-//}
-//
-//int
-//openDBAdapter(struct _adapter* apt){
-//    return 0;
-//}
-//
-//int
-//DBAdapterHandle(struct _adapter* apt, struct _log_msg* msg){
-//    return 0;
-//}
-//
-//int
-//DBAdapterClose(struct _adapter* apt){
-//    return 0;
-//}
-//
-//void
-//freeDBAdapter(struct _adapter* apt){
-//    free(apt);
-//}
+int
+_console_apt_accept(adapter_accept apt, struct _log_msg* msg){
+    struct _adapter* _apt = _adapteraddr(apt);
+    ls_t ls = (*_apt->layout)(_apt->layout, msg);
+    fprintf((FILE*)_apt->fd, "%s", ls);
+    lsfree(ls);
+    return 0;
+}
+
+int
+_free_console_apt(adapter_accept apt){
+    if (!apt) return 0;
+    _adapterprop_free(apt, name, lsfree);
+    free(_adapteraddr(apt));
+    return 0;
+}
+

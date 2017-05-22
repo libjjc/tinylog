@@ -60,25 +60,6 @@ int main(int argc, char** argv){
     lsfree(s4);
     ls_t ss = lsinitfmt("%.*s", 9, "hello");
 
-	int fd = _open("d:/2.txt", O_APPEND | O_WRONLY | O_CREAT, O_TEXT | O_NOINHERIT);
-	_write(fd, "aaa\n", 4);
-	_write(fd, "hello world!\n", 14);
-	fd = _open("d:/2.txt", O_APPEND | O_WRONLY | O_CREAT | O_TRUNC, O_TEXT | O_NOINHERIT);
-	_write(fd, "bbbb\n", 5);
-	_write(fd, "end\n", 4);
-	_close(fd);
-    tlinit();
-    struct _catagory* error = createCatagory(root(), TLL_ERROR, "error test");
-    struct _catagory* warn = createCatagory(root(), TLL_WARN, "warn test");
-    createConsoleAdapter(error, "console.error");
-    createFileAdapter(warn, "d:/1.txt", "file.warn",100);
-    //fprintf(stdout, "%s", "hello world!");
-    //write(stdout,)
-    //write((FILE*)(&stdout), "hello world!", 12);
-    tllog(TLL_FATAL, "fatal error");
-    tlerror("error error");
-    tlwarn("warn error");
-    tlshutdown();
     
     return 0;
 }

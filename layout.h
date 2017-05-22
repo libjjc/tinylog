@@ -6,25 +6,33 @@
 
 struct _adapter;
 struct _log_ts;
-typedef ls_t(*layout_callback)(void* ,struct _log_msg* );
+typedef void* callback_ptr;
+typedef ls_t(*layout_callback)(callback_ptr ,struct _log_msg* );
+typedef void(*layout_free)(layout_callback layout);
 
-
-struct patternLayout {
-	ls_t pattern;
-    struct _log_ts ts;
-	layout_callback layout;
-};
-
-struct basicLayout {
-    struct _log_ts ts;
+struct _layout {
     layout_callback layout;
+    layout_free free;
+    struct _log_ts ts;
+    ls_t pattern;
 };
 
 layout_callback
-createPatternLayout(struct _adapter* ada, ls_t args);
+create_pattern_layout(callback_ptr apt, ls_t pattern);
+
+layout_callback
+create_base_layout(callback_ptr apt);
 
 void
-freePatternLayout(layout_callback layout);
+free_layout(layout_callback layout);
+
+void
+layout_general_free(layout_callback layout);
+
+int
+set_layout_pattern(layout_callback layout,const char* pattern);
+
+
 
 /**
  * Sets the format of log lines handled by this
@@ -81,14 +89,7 @@ freePatternLayout(layout_callback layout);
 ls_t 
 patternLayout(layout_callback layout ,struct _log_msg* msg);
 
-layout_callback
-createBasicLayout(struct _adapter* ada);
-
-void
-freeBasicLayout(layout_callback layout);
-
 ls_t
 basicLayout(layout_callback layout ,struct _log_msg* msg);
-
 
 #endif//LOG_LAYOUT_HH

@@ -10,31 +10,69 @@
 #include "logmsg.h"
 
 #define layoutAddr(layout_type,callback)\
-    (layout_type*)(&callback - (int)(((layout_type*)(NULL))->layout))
+    ((layout_type*)(&callback - (int)(((layout_type*)(NULL))->layout)))
 
 layout_callback
-createPatternLayout(struct _adapter * ada,ls_t args){
-    struct patternLayout* pl;
-    pl = (struct patternLayout*)malloc(sizeof(struct patternLayout));
-    pl->pattern = lsinitcpyls(args);
+create_pattern_layout(adapter_accept apt,ls_t pattern){
+    struct _layout* pl =
+        (struct _layout*)malloc(sizeof(struct _layout));
+    if (pattern){
+        pl->pattern = lsinitcpyls(pattern);
+    } else{
+        pl->pattern = lscreate("", 0);
+    }
     pl->layout = patternLayout;
+    pl->free = layout_general_free;
     timestamp(&pl->ts);
-    if (ada) ada->layout = pl->layout;
+    if (apt){
+        _set_apt_layout(apt, pl->layout);
+    }
+    return pl->layout;
+}
+
+layout_callback
+create_base_layout(adapter_accept apt){
+    struct _layout* pl =
+        (struct _layout*)malloc(sizeof(struct _layout));
+
+    pl->layout = basicLayout;
+    pl->free = layout_general_free;
+    timestamp(&pl->ts);
+    if (apt){
+        _set_apt_layout(apt, pl->layout);
+    }
     return pl->layout;
 }
 
 void
-freePatternLayout(layout_callback layout){
+free_layout(layout_callback layout){
     if (!layout) return;
-    int offset = (int)((struct patternLayout*)(NULL))->layout;
-    struct patternLayout* pl = (struct patternLayout*)(&layout - offset);
-    if (pl->pattern){
-        lsfree(pl->pattern);
-    }
-    free(pl);
+    layout_free _free = layoutAddr(struct _layout, layout)->free;
+    _free(layout);
 }
 
-extern char num_str_100[];
+void
+layout_general_free(layout_callback layout){
+    if (!layout) return;
+    struct _layout *_layout = layoutAddr(struct _layout, layout);
+    if (_layout->pattern){
+        lsfree(_layout->pattern);
+    }
+    free(_layout);
+}
+
+int
+set_layout_pattern(layout_callback layout, const char* pattern){
+    if (!layout) return -1;
+    struct _layout* _layout = layoutAddr(struct _layout, layout);
+    _layout->layout = patternLayout;
+    if (_layout->pattern){
+        _layout->pattern = lscpy(_layout->pattern, pattern);
+    } else{
+        _layout->pattern = lscreate(pattern, strlen(pattern));
+    }
+    return 0;
+}
 
 ls_t 
 strftime_wrap(ls_t ls, const struct tm* t, const char* fmt){
@@ -105,7 +143,7 @@ dateconverse(ls_t ls, char ** fmt, struct _log_msg* msg){
 
 ls_t 
 patternLayout(layout_callback layout, struct _log_msg* msg){
-    struct patternLayout* ptl = layoutAddr(struct patternLayout, layout);
+    struct _layout* ptl = layoutAddr(struct _layout, layout);
     char*p = ptl->pattern;
     ls_t message = lscreate(0, 1024);
     char* cmdarg = NULL;
@@ -154,23 +192,6 @@ patternLayout(layout_callback layout, struct _log_msg* msg){
     return message;
 }
 
-layout_callback
-createBasicLayout(struct _adapter* ada){
-    struct basicLayout* bl;
-    bl = (struct basicLayout*)malloc(sizeof(struct basicLayout));
-    timestamp(&bl->ts);
-    bl->layout = basicLayout;
-    if (ada) ada->layout = bl->layout;
-    return bl->layout;
-}
-
-void
-freeBasicLayout(layout_callback layout){
-    if (!layout) return;
-    int offset = (int)((struct basicLayout*)(NULL))->layout;
-    struct basicLayout* pl = (struct basicLayout*)(&layout - offset);
-    free(pl);
-}
 
 ls_t
 basicLayout(layout_callback layout,struct _log_msg* msg){

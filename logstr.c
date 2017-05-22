@@ -319,6 +319,7 @@ ls_t *
 lssplit(const ls_t ls, const char* sep, ls_t* lss, int* size){
     const char* p = ls;
     const char* s = ls;
+    if (!size) return NULL;
     int szls = 0;
     while (*p){
         if (strchr(sep, *p)){
@@ -326,12 +327,18 @@ lssplit(const ls_t ls, const char* sep, ls_t* lss, int* size){
                 szls++;
                 if (szls >= *size){
                     *size *= 2;
-                    ls_t * ss = (ls_t*)realloc(lss, sizeof(ls_t)*(*size));
+                    ls_t* ss = NULL;
+                    if (lss){
+                        ss = (ls_t*)realloc(lss, sizeof(ls_t)*(*size));
+                    } else{
+                        ss = (ls_t*)malloc(sizeof(ls_t)*(*size));
+                    }
                     if (!ss){
                         while (*size-- > 0) lsfree(lss[*size]);
                         free(lss);
                         return NULL;
                     }
+                    lss = ss;
                 }
                 if (!(lss[szls] = lscreate(s, p - s))){
                     while (*size-- > 0) lsfree(lss[*size]);
@@ -343,6 +350,7 @@ lssplit(const ls_t ls, const char* sep, ls_t* lss, int* size){
         }
         p++;
     }
+    *size = szls;
     return lss;
 }
 
