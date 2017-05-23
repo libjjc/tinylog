@@ -8,8 +8,6 @@
 #define MAX_CATAGORY_CHILDREN 16
 #define MAX_CATAGORY_ADAPTERS 16
 
-;
-
 struct _catagory {
     int priority;
     int countAdapters;
@@ -54,18 +52,21 @@ struct _catagory*
 findCatagory(struct _catagory* parent, const char* name);
 
 int
-addAdapter(struct _catagory* cg, callback_ptr ada);
+addAdapter(struct _catagory* cg, _callback_ptr ada);
 
 int
-removeAdapter(struct _catagory* cg, callback_ptr ada);
+removeAdapter(struct _catagory* cg, _callback_ptr ada);
+
+int
+_replace_adapter(struct _catagory* cg, _callback_ptr old,_callback_ptr apt);
 
 bool
-hasAdapter(struct _catagory* cq, callback_ptr ada);
+hasAdapter(struct _catagory* cq, _callback_ptr ada);
 
 bool
-has_apt_recursive(struct _catagory* cq, callback_ptr apt);
+has_apt_recursive(struct _catagory* cq, _callback_ptr apt);
 
-callback_ptr
+_callback_ptr
 find_adapter(struct _catagory* cq, const char* aptname);
 
 int

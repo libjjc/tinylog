@@ -7,6 +7,8 @@
 #include "layout.h"
 #include "logdef.h"
 
+struct _catagory;
+
 typedef void* adapter_arguments;
 typedef int(*adapter_accept)(_callback_ptr,struct _log_msg*);
 typedef int(*adapter_free)(_callback_ptr);
@@ -23,6 +25,7 @@ struct _adapter {
     adapter_accept accept;
     adapter_free free;
     layout_callback layout;
+    struct _catagory* catagory;
     union args {
         struct _file_args {
             ls_t logfile;
@@ -59,6 +62,9 @@ struct _adapter {
 adapter_accept
 _create_null_adapter();
 
+void
+_free_adapter(adapter_accept apt);
+
 const ls_t
 _get_apt_name(adapter_accept apt);
 
@@ -68,14 +74,20 @@ _get_apt_free(adapter_accept apt);
 layout_callback
 _get_apt_layout(adapter_accept apt);
 
+struct _catagory*
+_get_apt_catagory(adapter_accept apt);
+
 int
 _set_apt_name(adapter_accept apt,const char* name);
+
+void
+_set_apt_catagory(adapter_accept apt,struct _catagory* catagory);
 
 int
 _set_apt_file(adapter_accept apt, const char* logfile);
 
 int
-_set_apt_fsize(adapter_accept apt, long maxsize);
+_set_apt_maxsize(adapter_accept apt, long maxsize);
 
 int
 _set_apt_rcount(adapter_accept apt, long rcount);
@@ -93,7 +105,10 @@ void
 _set_apt_layout(adapter_accept apt, layout_callback layout);
 
 adapter_accept
-_create_file_apt(struct _catagory* cata, const char* name, const char* logfile, int maxsize);
+_create_null_file_apt(const char* name , const char* logfile);
+
+adapter_accept
+_create_file_apt( const char* name,struct _catagory* cata, const char* logfile, int maxsize);
 
 int
 _free_file_apt(adapter_accept apt);
@@ -102,7 +117,10 @@ int
 _file_apt_accept(adapter_accept apt, struct _log_msg* msg);
 
 adapter_accept
-_create_rfile_apt(struct _catagory* cata, const char* name, const char* logfile, long rsize, long rcount);
+_create_null_rfile_apt(const char* name , const char* logfile);
+
+adapter_accept
+_create_rfile_apt( const char* name,struct _catagory* cata, const char* logfile, long rsize, long rcount);
 
 int
 _free_rfile_apt(adapter_accept apt);
@@ -111,7 +129,10 @@ int
 _rfile_apt_accept( adapter_accept apt,struct _log_msg* msg);
 
 adapter_accept
-_create_console_apt(struct _catagory* cata, const char* name);
+_create_null_console_apt(const char* name,int stream);
+
+adapter_accept
+_create_console_apt(const char* name,struct _catagory* cata);
 
 int
 _console_apt_accept(adapter_accept apt,struct _log_msg* msg);

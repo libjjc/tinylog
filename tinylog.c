@@ -2,7 +2,6 @@
 #include "logdef.h"
 #include "tinylog.h"
 #include "adapter.h"
-#include "helper.h"
 #include "catagory.h"
 #include "logmsg.h"
 struct _catagory gl_logger_root;

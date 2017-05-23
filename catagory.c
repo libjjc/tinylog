@@ -167,6 +167,23 @@ removeAdapter(struct _catagory* cg, adapter_accept ada){
     return 0;
 }
 
+int
+_replace_adapter(struct _catagory* cg, _callback_ptr old, _callback_ptr apt){
+    for (int i = 0; i < cg->countAdapters; i++){
+        if (old == cg->adapters[i]){
+            cg->adapters[i] = apt;
+            _set_apt_catagory(apt,cg);
+            return 0;
+        }
+    }
+    for (int i = 0; i < cg->countAdapters; i++){
+        if (!_replace_adapter(cg->children[i], old, apt)){
+            return 0;
+        }
+    }
+    return -1;
+}
+
 bool
 hasAdapter(struct _catagory* cg, adapter_accept ada){
     if (!cg || !ada) return false;
@@ -199,7 +216,7 @@ has_apt_recursive(struct _catagory* cq, struct _adapter* apt){
     return false;
 }
 
-adapter_accept*
+_callback_ptr
 find_adapter(struct _catagory* cq, const char* aptname){
     adapter_accept apt = NULL;
     for (int i = 0; i < cq->countAdapters; i++){

@@ -50,17 +50,22 @@ struct _log_script_tree {
 #define TINYLOG_TYPE_ADAPTER "adapter"
 #define TINYLOG_TYPE_LAYOUT "layout"
 
-#define TINYLOG_TYPE_adapterFILEADAPTER "file"
-#define TINYLOG_TYPE_adapterRFILEADAPTER "rollingfile"
-#define TINYLOG_TYPE_adapterCONSOLE "console"
+#define TINYLOG_TYPE_APT_FILE "file"
+#define TINYLOG_TYPE_APT_RFILE "rollingfile"
+#define TINYLOG_TYPE_APT_CONSOLE "console"
 
 #define TINYLOG_TYPE_LAYOUT_BASIC "basiclayout"
 #define TINYLOG_TYPE_LAYOUT_PATTERN "patternlayout"
 
-#define TINYLOG_adapterLOGFILE "logfile"
-#define TINYLOG_adapterMAXSIZE "maxsize"
-#define TINYLOG_adapterRCOUNT "rollingcount"
-#define TINYLOG_adapterRSIZE "rollingsize"
+#define TINYLOG_APT_LAYOUT "layout"
+#define TINYLOG_APT_LOGFILE "logfile"
+#define TINYLOG_APT_MAXSIZE "maxsize"
+#define TINYLOG_APT_RCOUNT "rollingcount"
+#define TINYLOG_APT_RSIZE "rollingsize"
+
+#define TINYLOG_CSL_SOUT "stdout"
+#define TINYLOG_CSL_SIN "stdin"
+#define TINYLOG_CSL_SERR "stderr"
 
 #define TINYLOG_LAYOUT_PATTERN "pattern"
 
@@ -84,6 +89,8 @@ parse_script_adapter(struct _log_script_tree* tree);
 
 int
 parse_script_layout(struct _log_script_tree* tree);
+
+
 
 int
 get_priority(const ls_t prior);

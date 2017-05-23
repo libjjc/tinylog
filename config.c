@@ -2,6 +2,7 @@
 #include <io.h>
 #include <fcntl.h>
 #include <malloc.h>
+#include <stdlib.h>
 #include "config.h"
 #include "logdef.h"
 #include "logstr.h"
@@ -106,7 +107,9 @@ parse_script_root(struct _log_script_tree* tree){
 	}
 	if (right->count >= 2) {
 		for (int i = 0; i < right->count; i++) {
-			_create_null_adapter();
+			adapter_accept apt = _create_null_adapter();
+            _set_apt_name(apt, right->words[i]);
+            addAdapter(root(), apt);
 		}
 	}
     return 0;
@@ -124,7 +127,16 @@ parse_script_catagory(struct _log_script_tree* tree){
     }
     cata = findCatagory(root(), tree->words[2]);
     if (!cata) return -1;
-    cata->priority = get_priority(right->words[0]);
+    if (right->count >= 1){
+        cata->priority = get_priority(right->words[0]);
+    }
+    if (right->count >= 2){
+        for (int i = 1; i < right->count; i++){
+            adapter_accept apt = _create_null_adapter();
+            _set_apt_name(apt, right->words[i]);
+            addAdapter(root(), apt);
+        }
+    }
     return 0;
 }
 
@@ -133,14 +145,81 @@ parse_script_adapter(struct _log_script_tree* tree){
     struct _log_script_leaf* left, *right;
     left = &tree->_left;
     right = &tree->_right;
-    if (left->count < 4) return -2;
-    struct _adapter* apt = find_adapter(root(), left->words[2]);
-    if (!apt) return -1;
+    if (left->count <= 2) return -2;
+    adapter_accept apt = NULL;
+    if (left->count == 3){
+        apt = find_adapter(root(), left->words[2]);
+        if (!apt) return -2;
+        struct _catagory* cata = _get_apt_catagory(apt);
+        if (!cata) return -1;
+        adapter_accept _apt_imp = NULL;
+        if (right->count >= 1){
+            if (!lscmp(right->words[0], TINYLOG_TYPE_APT_FILE)){
+                if (right->count < 2) return -2;
+                _apt_imp = _create_null_file_apt(right->words[1], _get_apt_name(apt));
+                _replace_adapter(cata, apt, _apt_imp);
+            } else if (!lscmp(right->words[0], TINYLOG_TYPE_APT_RFILE)){
+                if (right->count < 2) return -2;
+                _apt_imp = _create_null_rfile_apt(right->words[1], _get_apt_name(apt));
+                _replace_adapter(cata, apt, _apt_imp);
+            } else if (!lscmp(right->words[0], TINYLOG_TYPE_APT_CONSOLE)){
+                if (right->count < 2) return -2;
+                int stream = 0;
+                if (lscmp(right->words[1], TINYLOG_CSL_SOUT)){
+                    stream = (int)stdout;
+                } else if (lscmp(right->words[1], TINYLOG_CSL_SIN)){
+                    stream = (int)stdin;
+                } else if (lscmp(right->words[1], TINYLOG_CSL_SERR)){
+                    stream = (int)stderr;
+                } else return -2;
+                _apt_imp = _create_null_console_apt( _get_apt_name(apt),stream);
+                _replace_adapter(cata, apt, _apt_imp);
+            } else return -2;
+            _free_adapter(apt);
+            apt = _apt_imp;
+        }
+    }
+    if (left->count >= 4){
+        if (!lscmp(left->words[3], TINYLOG_TYPE_LAYOUT)){
+            return parse_script_layout(tree);
+        } else if (lscmp(left->words[3], TINYLOG_APT_LOGFILE)){
+
+        } else if (lscmp(left->words[3], TINYLOG_APT_MAXSIZE)){
+            int value = atoi(right->words[0]);
+            if (value <= 0) return -2;
+            _set_apt_maxsize(apt, value);
+        } else if (lscmp(left->words[3], TINYLOG_APT_RCOUNT)){
+            int value = atoi(right->words[0]);
+            if (value <= 0) return -2;
+            _set_apt_rcount(apt, value);
+        } else if (lscmp(left->words[3], TINYLOG_APT_RSIZE)){
+            int value = atoi(right->words[0]);
+            if (value <= 0) return -2;
+            _set_apt_maxsize(apt, value);
+        } else return -2;
+    }
     return 0;
 }
 
+
 int
 parse_script_layout(struct _log_script_tree* tree){
+    struct _log_script_leaf* left, *right;
+    left = &tree->_left;
+    right = &tree->_right;
+    adapter_accept apt = find_adapter(root(), left->words[3]);
+    if (!apt)return -2;
+    if (left->count == 4){
+        if (!lscmp(right->words[0], TINYLOG_TYPE_LAYOUT_BASIC)){
+            _set_apt_layout(apt, create_base_layout(apt));
+        } else if (!lscmp(right->words[0], TINYLOG_TYPE_LAYOUT_PATTERN)){
+            _set_apt_layout(apt, create_pattern_layout(apt,""));
+        } else return -2;
+    } else if (left->count > 4){
+        if (!lscmp(left->words[1], TINYLOG_LAYOUT_PATTERN)){
+            set_layout_pattern(_get_apt_layout(apt), right->words[0]);
+        } else return-2;
+    } else return -2;
     return 0;
 }
 
