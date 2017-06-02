@@ -399,6 +399,8 @@ lsupper(ls_t ls);
 ls_t
 lstrim(ls_t ls);
 
+ls_t
+lstrimstr(ls_t ls, const char* str);
 
 /**
  * @brief

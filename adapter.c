@@ -10,10 +10,6 @@
 #include <io.h>
 #include <math.h>
 
-#define DEFAULT_LOGFILE_MAXSIZE 50
-#define DEFAULT_LOGFILE_RSIZE 30
-#define DEFAULT_LOGFILE_RCOUNT 20
-
 #define DEFAULT_ACCEPT _console_apt_accept
 #define DEFAULT_FREE _free_console_apt
 

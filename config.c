@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <malloc.h>
 #include <stdlib.h>
+#include <string.h>
 #include "config.h"
 #include "logdef.h"
 #include "logstr.h"
@@ -10,12 +11,77 @@
 #include "adapter.h"
 #include "layout.h"
 #include "tinylog.h"
+#include "dict.h"
+
+#define DICT_SET_KV(d,k,v) dtset(d,k,v);
 
 int
-configure(const char* config){
-    if (!config) return -1;
+process_word(ls_t word, dict_t d);
 
-    int fd = _open(config, O_RDONLY, O_TEXT | O_SEQUENTIAL);
+int
+logconfigureline(ls_t line, dict_t d);
+
+int
+process_root(dict_t d, struct _log_script_tree* tree);
+
+typedef int(*property_configure)(void* owner, int argc, char** argv);
+
+int
+process_catagory(dict_t d, struct _log_script_tree* tree);
+
+int
+process_adapter(dict_t d, struct _log_script_tree* tree);
+
+int
+process_layout(dict_t d, struct _log_script_tree* tree);
+
+int
+_property_set_priority(struct _catagory* c, int argc, char** argv);
+
+int
+_property_set_cataname(struct _catagory* c, int argc, char** argv);
+
+int
+_property_set_fileapt(struct _catagory* c, int argc, char** argv);
+
+int
+_property_set_rfileapt(struct _catagory* c, int argc, char** argv);
+
+int
+_property_set_consoleapt(struct _catagory* c, int argc, char** argv);
+
+int
+_property_set_layout(adapter_accept apt, int argc, char** argv);
+
+int
+_property_create_basiclayout(adapter_accept apt, int argc, char** argv);
+
+int
+_property_create_patternlayout(adapter_accept apt, int argc, char** argv);
+
+int
+get_or_create_catagory(struct _catagory* c, char* name, dict_t d);
+
+int
+add_catagory_child(struct _catagory* c, char* child, dict_t d);
+
+
+int
+get_priority(const ls_t prior){
+    return TLL_NOTSET;
+}
+
+typedef int(*parse)(void*, const char* param,dict_t d);
+struct _configure_node {
+    void* node;
+    parse handle;
+};
+
+int 
+logconfigure(const char* file){
+    if (!file) return -1;
+
+    int fd = _open(file, O_RDONLY, O_TEXT | O_SEQUENTIAL);
 
     if (!fd) return -1;
 
@@ -27,22 +93,32 @@ configure(const char* config){
 
     if (!buffer) return -1;
 
-    if (_read(fd, buffer, flen))return -1;
+    if (!_read(fd, buffer, flen))return -1;
 
     int ret = 0;
 
     ls_t sentence = lscreate(NULL, 256);
+
+    dict_t dict = dtcreate(&oksvstrimpl);
+    DICT_SET_KV(dict, TINYLOG_PROPERTY_PRIORITY, _property_set_priority);
+    DICT_SET_KV(dict, TINYLOG_PROPERTY_FILE_ADAPTER, _property_set_fileapt);
+    DICT_SET_KV(dict, TINYLOG_PROPERTY_RFILE_ADAPTER, _property_set_rfileapt);
+    DICT_SET_KV(dict, TINYLOG_PROPERTY_CONSOLE_ADAPTER, _property_set_consoleapt);
 
     const char* p = buffer;
     const char* f = buffer;
     while (*p){
         if (';' == *p){
             sentence = lscatlen(sentence, f, p - f);
+            sentence = lstrimstr(sentence," \r\n");
             f = p;
-            if (configure_sentence(sentence)){
+            f++;
+
+            if (logconfigureline(sentence,dict)){
                 lsfree(sentence);
                 return -1;
             }
+            lsclear(sentence);
         }
 
         p++;
@@ -53,177 +129,205 @@ configure(const char* config){
     return ret;
 }
 
+int 
+process_word(ls_t word,dict_t d){
+    dt_entity_t e = dtfind(d, word);
+    if (!e) return -2;
+    struct _configure_node* node = e->ptv;
+    if (node->handle){
+        if (node->handle(node->node, word, d)) return -1;
+    }
+    return 0;
+}
+
 int
-configure_sentence(ls_t sentence){
-    if (!sentence) return -1;
+logconfigureline(ls_t line,dict_t d){
+    if (!line) return -1;
     struct _log_script_tree tree;
     int size = 2;
     ls_t* lstree = (ls_t*)malloc(sizeof(ls_t*)*size);
-    lstree = lssplit(sentence, "=", lstree, &size);
+    lstree = lssplit(line, "=", lstree, &size);
     if (2 != size) return -2;
     tree._left.count = tree._right.count = 4;
-    tree._left.words = lssplit(lstree[0], "., \r\n", NULL, &tree._left.count);
-    tree._right.words = lssplit(lstree[1], "., \r\n", NULL, &tree._right.count);
-    parse_script_tree(&tree);
-    return 0;
-}
 
-int
-parse_script_tree( struct _log_script_tree* tree){
-    if (!tree)return -1;
-    if (tree->_left.count < 2)return -2;
-    struct _log_script_leaf* left, *right;
-    left = &tree->_left;
-    right = &tree->_right;
-    if (lscmp(left->words[0], TINYLOG_PREFIX)) return -2;
-    if (!lscmp(left->words[1], TINYLOG_TYPE_ROOT)){
-        parse_script_root(tree);
-    }else if(!lscmp(left->words[1], TINYLOG_TYPE_CATAGORY)){
-        parse_script_catagory(tree);
-    } else if (!lscmp(left->words[1], TINYLOG_TYPE_ADAPTER)){
-        if (left->count < 4) return -2;
-        if (!lscmp(left->words[3], TINYLOG_TYPE_LAYOUT)){
-            parse_script_layout(tree);
-        } else{
-            parse_script_adapter(tree);
-        }
+    tree._left.words = lssplit(lstree[0], ". \r\n", NULL, &tree._left.count);
+    tree._right.words = lssplit(lstree[1], ", \r\n", NULL, &tree._right.count);
+    int ret = 0;
+    if (0 == strcmp(TINYLOG_TYPE_ROOT, tree._left.words[0])){
+        ret = process_root(d,&tree);
+    } else if (0 == strcmp(TINYLOG_TYPE_CATAGORY, tree._left.words[0])){
+        ret = process_catagory(d, &tree);
+    } else if (0 == strcmp(TINYLOG_TYPE_ADAPTER, tree._left.words[0])){
+        ret = process_adapter(d, &tree);
     } else{
-        return -3;
+        ret = -1;
     }
+    for (int i = 0; i < tree._left.count; i++){
+        lsfree(tree._left.words[i]);
+    }
+    for (int i = 0; i < tree._right.count; i++){
+        lsfree(tree._right.words[i]);
+    }
+    free(tree._left.words);
+    free(tree._right.words);
+    return ret;
+}
 
+int
+process_root(dict_t d, struct _log_script_tree* tree){
+    struct _catagory* c = root();
+    if (tree->_left.count == 1){
+        _property_set_cataname(c, tree->_right.count, &tree->_right.words[0]);
+    } else{
+        for (int i = 1; i < tree->_left.count; i++){
+            c = get_create_catagory(c, tree->_left.words[i]);
+            _property_set_priority(c, tree->_right.count, &tree->_right.words[0]);
+        }
+    }
+    return 0;
+}
+
+typedef int(*property_configure)(void* owner, int argc, char** argv);
+
+int
+process_catagory(dict_t d, struct _log_script_tree* tree){
+    struct _catagory* c = findCatagory(root(), tree->_left.words[1]);
+    
+    dt_entity_t e = dtfind(d, tree->_left.words[1]);
+    if (!e) return -1;
+    if (((property_configure)e->ptv)(c, tree->_right.count, &tree->_right.words[0])){
+        return -1;
+    }
     return 0;
 }
 
 int
-parse_script_root(struct _log_script_tree* tree){
-	struct _log_script_leaf* left, *right;
-    left = &tree->_left;
-    right = &tree->_right;
-	if (left->count > 2) {
-		return -2;
-	}
-	if (right->count >= 1) {
-		root()->priority = get_priority(right->words[0]);
-	}
-	if (right->count >= 2) {
-		for (int i = 0; i < right->count; i++) {
-			adapter_accept apt = _create_null_adapter();
-            _set_apt_name(apt, right->words[i]);
-            addAdapter(root(), apt);
-		}
-	}
+process_adapter(dict_t d, struct _log_script_tree* tree){
+    dt_entity_t e = dtfind(d, tree->_left.words[1]);
+    if (!e) return -1;
+    adapter_accept apt = (adapter_accept)e->ptv;
+    e = dtfind(d, tree->_left.words[2]);
+    if (!e)return -1;
+    if (((property_configure)e->ptv)(apt, tree->_right.count, &tree->_right.words[0])){
+        return -1;
+    }
     return 0;
 }
 
 int
-parse_script_catagory(struct _log_script_tree* tree){
-    struct _log_script_leaf* left, *right;
-    left = &tree->_left;
-    right = &tree->_right;
-    if (left->count > 2)return -2;
-    struct _catagory* cata = NULL;
-    for (int i = 2; i < left->count; i++){
-        cata = get_create_catagory(cata->name, left->words[i]);
+process_layout(dict_t d, struct _log_script_tree* tree){
+    dt_entity_t e = dtfind(d, tree->_left.words[1]);
+    if (!e) return -1;
+    adapter_accept apt = (adapter_accept)e->ptv;
+    e = dtfind(d, tree->_left.words[2]);
+    if (!e)return -1;
+    if (((property_configure)e->ptv)(apt,tree->_right.count , &tree->_right.words[0])){
+        return -1;
     }
-    cata = findCatagory(root(), tree->words[2]);
+    return 0;
+}
+
+int
+_property_set_priority(struct _catagory* c, int argc , char** argv){
+    c->priority = atoi(argv[0]);
+    return 0;
+}
+
+int 
+_property_set_cataname(struct _catagory* c, int argc , char** argv){
+    if (c->name){
+        c->name = lscpy(c->name, argv[0]);
+    } else{
+        c->name = lscreate(argv[0], strlen(argv[0]));
+    }
+    return c->name ? 0 : -1;
+}
+
+int
+_property_set_fileapt(struct _catagory* c, int argc, char** argv){
+    if (argc < 2) return -2;
+    adapter_accept apt = 0;
+    switch (argc){
+    case 2:
+        apt = _create_file_apt(argv[0], c, argv[1], DEFAULT_LOGFILE_MAXSIZE);
+        break;
+    case 3:
+        apt = _create_file_apt(argv[0], c, argv[1], atoi(argv[2]));
+        break;
+    default:
+        return -1;
+    }
+    return 0;
+}
+
+int
+_property_set_rfileapt(struct _catagory* c, int argc, char** argv){
+    if (argc < 2) return -2;
+    adapter_accept apt = 0;
+    switch (argc){
+    case 2:
+        apt = _create_rfile_apt(argv[0], c, argv[1], DEFAULT_LOGFILE_RSIZE,DEFAULT_LOGFILE_RCOUNT);
+        break;
+    case 3:
+        apt = _create_rfile_apt(argv[0], c, argv[1], atoi(argv[2]),DEFAULT_LOGFILE_RCOUNT);
+        break;
+    case 4:
+        apt = _create_rfile_apt(argv[0], c, argv[1], atoi(argv[2]), atoi(argv[3]));
+    default:
+        return -1;
+    }
+    return 0;
+}
+
+int
+_property_set_consoleapt(struct _catagory* c, int argc, char** argv){
+    if (1 != argc) return -1;
+    adapter_accept apt = _create_console_apt(argv[0], c);
+    return apt ? 0 : -1;
+}
+
+int
+_property_set_layout(adapter_accept apt, int argc, char** argv){
+    if (argc < 1)return -1;
+    if (0 == strcmp(argv[0], TINYLOG_TYPE_LAYOUT_BASIC)){
+        return _property_create_basiclayout(apt, argc, argv);
+    } else if (0 == strcmp(argv[0], TINYLOG_TYPE_LAYOUT_PATTERN)){
+        return _property_create_patternlayout(apt, argc, argv);
+    }
+    return -1;
+}
+
+int
+_property_create_basiclayout(adapter_accept apt, int argc, char** argv){
+    if (!create_base_layout(apt)){
+        return -1;
+    }
+    return 0;
+}
+
+int
+_property_create_patternlayout(adapter_accept apt, int argc, char** argv){
+    if (argc != 2) return -2;
+    if (!create_pattern_layout(apt,argv[1])){
+        return -1;
+    }
+    return 0;
+}
+
+int
+get_or_create_catagory(struct _catagory* c, char* name, dict_t d){
+    if (!dtfind(d, name)){
+        return add_catagory_child(c, name, d);
+    }
+    return 0;
+}
+
+int
+add_catagory_child(struct _catagory* c, char* child,dict_t d){
+    if (dtfind(d, child)){ return -1; }
+    struct _catagory* cata = createCatagory(c, TLL_NOTSET, child);
     if (!cata) return -1;
-    if (right->count >= 1){
-        cata->priority = get_priority(right->words[0]);
-    }
-    if (right->count >= 2){
-        for (int i = 1; i < right->count; i++){
-            adapter_accept apt = _create_null_adapter();
-            _set_apt_name(apt, right->words[i]);
-            addAdapter(root(), apt);
-        }
-    }
+    dtset(d, child, 0);
     return 0;
 }
 
-int
-parse_script_adapter(struct _log_script_tree* tree){
-    struct _log_script_leaf* left, *right;
-    left = &tree->_left;
-    right = &tree->_right;
-    if (left->count <= 2) return -2;
-    adapter_accept apt = NULL;
-    if (left->count == 3){
-        apt = find_adapter(root(), left->words[2]);
-        if (!apt) return -2;
-        struct _catagory* cata = _get_apt_catagory(apt);
-        if (!cata) return -1;
-        adapter_accept _apt_imp = NULL;
-        if (right->count >= 1){
-            if (!lscmp(right->words[0], TINYLOG_TYPE_APT_FILE)){
-                if (right->count < 2) return -2;
-                _apt_imp = _create_null_file_apt(right->words[1], _get_apt_name(apt));
-                _replace_adapter(cata, apt, _apt_imp);
-            } else if (!lscmp(right->words[0], TINYLOG_TYPE_APT_RFILE)){
-                if (right->count < 2) return -2;
-                _apt_imp = _create_null_rfile_apt(right->words[1], _get_apt_name(apt));
-                _replace_adapter(cata, apt, _apt_imp);
-            } else if (!lscmp(right->words[0], TINYLOG_TYPE_APT_CONSOLE)){
-                if (right->count < 2) return -2;
-                int stream = 0;
-                if (lscmp(right->words[1], TINYLOG_CSL_SOUT)){
-                    stream = (int)stdout;
-                } else if (lscmp(right->words[1], TINYLOG_CSL_SIN)){
-                    stream = (int)stdin;
-                } else if (lscmp(right->words[1], TINYLOG_CSL_SERR)){
-                    stream = (int)stderr;
-                } else return -2;
-                _apt_imp = _create_null_console_apt( _get_apt_name(apt),stream);
-                _replace_adapter(cata, apt, _apt_imp);
-            } else return -2;
-            _free_adapter(apt);
-            apt = _apt_imp;
-        }
-    }
-    if (left->count >= 4){
-        if (!lscmp(left->words[3], TINYLOG_TYPE_LAYOUT)){
-            return parse_script_layout(tree);
-        } else if (lscmp(left->words[3], TINYLOG_APT_LOGFILE)){
-
-        } else if (lscmp(left->words[3], TINYLOG_APT_MAXSIZE)){
-            int value = atoi(right->words[0]);
-            if (value <= 0) return -2;
-            _set_apt_maxsize(apt, value);
-        } else if (lscmp(left->words[3], TINYLOG_APT_RCOUNT)){
-            int value = atoi(right->words[0]);
-            if (value <= 0) return -2;
-            _set_apt_rcount(apt, value);
-        } else if (lscmp(left->words[3], TINYLOG_APT_RSIZE)){
-            int value = atoi(right->words[0]);
-            if (value <= 0) return -2;
-            _set_apt_maxsize(apt, value);
-        } else return -2;
-    }
-    return 0;
-}
-
-
-int
-parse_script_layout(struct _log_script_tree* tree){
-    struct _log_script_leaf* left, *right;
-    left = &tree->_left;
-    right = &tree->_right;
-    adapter_accept apt = find_adapter(root(), left->words[3]);
-    if (!apt)return -2;
-    if (left->count == 4){
-        if (!lscmp(right->words[0], TINYLOG_TYPE_LAYOUT_BASIC)){
-            _set_apt_layout(apt, create_base_layout(apt));
-        } else if (!lscmp(right->words[0], TINYLOG_TYPE_LAYOUT_PATTERN)){
-            _set_apt_layout(apt, create_pattern_layout(apt,""));
-        } else return -2;
-    } else if (left->count > 4){
-        if (!lscmp(left->words[1], TINYLOG_LAYOUT_PATTERN)){
-            set_layout_pattern(_get_apt_layout(apt), right->words[0]);
-        } else return-2;
-    } else return -2;
-    return 0;
-}
-
-int
-get_priority(const ls_t prior){
-    return TLL_NOTSET;
-}

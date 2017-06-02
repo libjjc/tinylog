@@ -7,6 +7,11 @@
 #include "layout.h"
 #include "logdef.h"
 
+#define DEFAULT_LOGFILE_MAXSIZE 50
+#define DEFAULT_LOGFILE_RSIZE 30
+#define DEFAULT_LOGFILE_RCOUNT 20
+
+
 struct _catagory;
 
 typedef void* adapter_arguments;

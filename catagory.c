@@ -55,8 +55,8 @@ createNullCatagory(const char* name){
 
 
 struct _catagory*
-get_create_catagory(const char* parent,const char* name){
-    struct _catagory* parent_cata = NULL;
+get_create_catagory(const struct _catagory* parent,const char* name){
+    struct _catagory* parent_cata = findCatagory(&gl_logger_root,name);
     struct _catagory* cata = NULL;
     if (!parent_cata){
         parent_cata = &gl_logger_root;
@@ -128,7 +128,7 @@ struct _catagory*
 findCatagory(struct _catagory* parent, const char* name){
     struct _catagory* cg = NULL;
     if (!parent) return cg;
-    for (int i = 0; i <= parent->countChildren; i++){
+    for (int i = 0; i < parent->countChildren; i++){
         if (!parent->children[i] && parent->children[i]->name && !lscmp(parent->children[i]->name, name)){
             cg = parent->children[i];
             break;

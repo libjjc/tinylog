@@ -37,7 +37,7 @@ struct _catagory*
 createNullCatagory(const char* name);
 
 struct _catagory*
-get_create_catagory(const char* parent,const char* name);
+get_create_catagory(const struct _catagory* parent,const char* name);
 
 void
 freeCatagory(struct _catagory* cg);

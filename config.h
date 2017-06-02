@@ -57,6 +57,16 @@ struct _log_script_tree {
 #define TINYLOG_TYPE_LAYOUT_BASIC "basiclayout"
 #define TINYLOG_TYPE_LAYOUT_PATTERN "patternlayout"
 
+#define TINYLOG_PROPERTY_PRIORITY "priority"
+
+#define TINYLOG_PROPERTY_ADAPTER "adapter"
+#define TINYLOG_PROPERTY_FILE_ADAPTER "fileadapter"
+#define TINYLOG_PROPERTY_RFILE_ADAPTER "rfileadapter"
+#define TINYLOG_PROPERTY_CONSOLE_ADAPTER "consoleadapter"
+
+
+
+
 #define TINYLOG_APT_LAYOUT "layout"
 #define TINYLOG_APT_LOGFILE "logfile"
 #define TINYLOG_APT_MAXSIZE "maxsize"
@@ -70,30 +80,13 @@ struct _log_script_tree {
 #define TINYLOG_LAYOUT_PATTERN "pattern"
 
 int
-configure(const char* config);
-
-int
-configure_sentence(ls_t sentence);
-
-int
-parse_script_tree(struct _log_script_tree* tree);
-
-int
-parse_script_root(struct _log_script_tree* tree);
-
-int
-parse_script_catagory(struct _log_script_tree* tree);
-
-int
-parse_script_adapter(struct _log_script_tree* tree);
-
-int
-parse_script_layout(struct _log_script_tree* tree);
-
-
-
-int
 get_priority(const ls_t prior);
+
+
+int
+logconfigure(const char* configfile);
+
+
 
 #endif//TINYLOG_CONFIG_HH
 

@@ -317,16 +317,18 @@ lssubls(const ls_t ls, int begin, int end){
 
 ls_t *
 lssplit(const ls_t ls, const char* sep, ls_t* lss, int* size){
+    if (!lss){
+        lss = calloc(1,sizeof(ls_t*)*(*size));
+    }
     const char* p = ls;
     const char* s = ls;
     if (!size) return NULL;
     int szls = 0;
     while (*p){
         if (strchr(sep, *p)){
-            if (p != s && p - s > 1){
-                szls++;
+            //if (p != s /*&& p - s > 1*/){
                 if (szls >= *size){
-                    *size *= 2;
+                    *size = szls * 2;
                     ls_t* ss = NULL;
                     if (lss){
                         ss = (ls_t*)realloc(lss, sizeof(ls_t)*(*size));
@@ -345,12 +347,20 @@ lssplit(const ls_t ls, const char* sep, ls_t* lss, int* size){
                     free(lss);
                     return NULL;
                 }
-            }
+                szls++;
+            //}
             s = p;
+            s++;
         }
         p++;
     }
-    *size = szls;
+    if (!(lss[szls] = lscreate(s, strlen(s)))){
+        while (*size-- > 0) lsfree(lss[*size]);
+        free(lss);
+        return NULL;
+    }
+
+    *size = szls+1;
     return lss;
 }
 
@@ -464,6 +474,23 @@ lstrim(ls_t ls){
         if (*p != ' ' && *q != ' ') break;
         if (*p == ' ') p++;
         if (*q == ' '&&p != q) q--;
+    }
+    int len = p > q ? 0 : q - p + 1;
+    memmove_s(lsbegin(ls), lssize(ls), p, len);
+    _LSP(ls)->free += lssize(ls) - len;
+    _LSP(ls)->len = len;
+    *lsend(ls) = 0;
+    return lsbegin(ls);
+}
+
+ls_t 
+lstrimstr(ls_t ls,const char* str){
+    char* p = lsbegin(ls);
+    char* q = lsend(ls)-1;
+    for (; p <= q ;){
+        if (!strchr(str, *p) && !strchr(str, *q)) break;
+        if (strchr(str,*p)) p++;
+        if (strchr(str,*q)) q--;
     }
     int len = p > q ? 0 : q - p + 1;
     memmove_s(lsbegin(ls), lssize(ls), p, len);

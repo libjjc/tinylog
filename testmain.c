@@ -7,6 +7,8 @@
 #include "adapter.h"
 #include "logdef.h"
 #include <string.h>
+
+#include "config.h"
 int main(int argc, char** argv){
     int tf = _open("d:/test.txt", O_RDONLY, O_TEXT);
     
@@ -59,7 +61,9 @@ int main(int argc, char** argv){
     lsfree(s3);
     lsfree(s4);
     ls_t ss = lsinitfmt("%.*s", 9, "hello");
+    lsfree(ss);
 
+    logconfigure("f:/logger.cfg");
     
     return 0;
 }
