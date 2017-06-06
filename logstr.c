@@ -227,7 +227,8 @@ lsresize(ls_t ls, char c, int size){
 
 void 
 lsclear(ls_t ls){
-    memset(lsbegin(ls), 0, lssize(ls));
+    //memset(lsbegin(ls), 0, lssize(ls));
+    *lsbegin(ls) = 0;
     _LSP(ls)->free = lssize(ls);
     _LSP(ls)->len = 0;
 }

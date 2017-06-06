@@ -1,7 +1,7 @@
 #include <string.h>
 #include "logdef.h"
 #include "tinylog.h"
-#include "adapter.h"
+#include "logger.h"
 #include "catagory.h"
 #include "logmsg.h"
 struct _catagory gl_logger_root;
@@ -63,7 +63,7 @@ tllog(int priority, const char* _msg, ...){
     msg.msg = lscreate(_msg, strlen(_msg));
     msg.ts.sec = 0;
 
-    capacityLogging(_root, &msg);
+    _catagory_logging(_root, &msg);
 
     lsfree(msg.cagy);
     lsfree(msg.msg);

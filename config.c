@@ -8,7 +8,7 @@
 #include "logdef.h"
 #include "logstr.h"
 #include "catagory.h"
-#include "adapter.h"
+#include "logger.h"
 #include "layout.h"
 #include "tinylog.h"
 #include "dict.h"
@@ -30,7 +30,7 @@ int
 process_catagory(dict_t d, struct _log_script_tree* tree);
 
 int
-process_adapter(dict_t d, struct _log_script_tree* tree);
+process_logger(dict_t d, struct _log_script_tree* tree);
 
 int
 process_layout(dict_t d, struct _log_script_tree* tree);
@@ -42,22 +42,22 @@ int
 _property_set_cataname(struct _catagory* c, int argc, char** argv);
 
 int
-_property_set_fileapt(struct _catagory* c, int argc, char** argv);
+_property_set_filelogger(struct _catagory* c, int argc, char** argv);
 
 int
-_property_set_rfileapt(struct _catagory* c, int argc, char** argv);
+_property_set_rfilelogger(struct _catagory* c, int argc, char** argv);
 
 int
-_property_set_consoleapt(struct _catagory* c, int argc, char** argv);
+_property_set_consolelogger(struct _catagory* c, int argc, char** argv);
 
 int
-_property_set_layout(adapter_accept apt, int argc, char** argv);
+_property_set_layout(logger_logging logger, int argc, char** argv);
 
 int
-_property_create_basiclayout(adapter_accept apt, int argc, char** argv);
+_property_create_basiclayout(logger_logging logger, int argc, char** argv);
 
 int
-_property_create_patternlayout(adapter_accept apt, int argc, char** argv);
+_property_create_patternlayout(logger_logging logger, int argc, char** argv);
 
 int
 get_or_create_catagory(struct _catagory* c, char* name, dict_t d);
@@ -101,9 +101,9 @@ logconfigure(const char* file){
 
     dict_t dict = dtcreate(&oksvstrimpl);
     DICT_SET_KV(dict, TINYLOG_PROPERTY_PRIORITY, _property_set_priority);
-    DICT_SET_KV(dict, TINYLOG_PROPERTY_FILE_ADAPTER, _property_set_fileapt);
-    DICT_SET_KV(dict, TINYLOG_PROPERTY_RFILE_ADAPTER, _property_set_rfileapt);
-    DICT_SET_KV(dict, TINYLOG_PROPERTY_CONSOLE_ADAPTER, _property_set_consoleapt);
+    DICT_SET_KV(dict, TINYLOG_PROPERTY_FILE_logger, _property_set_filelogger);
+    DICT_SET_KV(dict, TINYLOG_PROPERTY_RFILE_logger, _property_set_rfilelogger);
+    DICT_SET_KV(dict, TINYLOG_PROPERTY_CONSOLE_logger, _property_set_consolelogger);
 
     const char* p = buffer;
     const char* f = buffer;
@@ -157,8 +157,8 @@ logconfigureline(ls_t line,dict_t d){
         ret = process_root(d,&tree);
     } else if (0 == strcmp(TINYLOG_TYPE_CATAGORY, tree._left.words[0])){
         ret = process_catagory(d, &tree);
-    } else if (0 == strcmp(TINYLOG_TYPE_ADAPTER, tree._left.words[0])){
-        ret = process_adapter(d, &tree);
+    } else if (0 == strcmp(TINYLOG_TYPE_logger, tree._left.words[0])){
+        ret = process_logger(d, &tree);
     } else{
         ret = -1;
     }
@@ -191,24 +191,24 @@ typedef int(*property_configure)(void* owner, int argc, char** argv);
 
 int
 process_catagory(dict_t d, struct _log_script_tree* tree){
-    struct _catagory* c = findCatagory(root(), tree->_left.words[1]);
+    struct _catagory* c = _find_catagory(root(), tree->_left.words[1]);
     
-    dt_entity_t e = dtfind(d, tree->_left.words[1]);
+    dt_entity_t e = dtfind(d, tree->_left.words[2]);
     if (!e) return -1;
-    if (((property_configure)e->ptv)(c, tree->_right.count, &tree->_right.words[0])){
+    if (((property_configure)e->val.ptv)(c, tree->_right.count, &tree->_right.words[0])){
         return -1;
     }
     return 0;
 }
 
 int
-process_adapter(dict_t d, struct _log_script_tree* tree){
+process_logger(dict_t d, struct _log_script_tree* tree){
     dt_entity_t e = dtfind(d, tree->_left.words[1]);
     if (!e) return -1;
-    adapter_accept apt = (adapter_accept)e->ptv;
+    logger_logging logger = (logger_logging)e->ptv;
     e = dtfind(d, tree->_left.words[2]);
     if (!e)return -1;
-    if (((property_configure)e->ptv)(apt, tree->_right.count, &tree->_right.words[0])){
+    if (((property_configure)e->ptv)(logger, tree->_right.count, &tree->_right.words[0])){
         return -1;
     }
     return 0;
@@ -218,10 +218,10 @@ int
 process_layout(dict_t d, struct _log_script_tree* tree){
     dt_entity_t e = dtfind(d, tree->_left.words[1]);
     if (!e) return -1;
-    adapter_accept apt = (adapter_accept)e->ptv;
+    logger_logging logger = (logger_logging)e->ptv;
     e = dtfind(d, tree->_left.words[2]);
     if (!e)return -1;
-    if (((property_configure)e->ptv)(apt,tree->_right.count , &tree->_right.words[0])){
+    if (((property_configure)e->ptv)(logger,tree->_right.count , &tree->_right.words[0])){
         return -1;
     }
     return 0;
@@ -244,15 +244,15 @@ _property_set_cataname(struct _catagory* c, int argc , char** argv){
 }
 
 int
-_property_set_fileapt(struct _catagory* c, int argc, char** argv){
+_property_set_filelogger(struct _catagory* c, int argc, char** argv){
     if (argc < 2) return -2;
-    adapter_accept apt = 0;
+    logger_logging logger = 0;
     switch (argc){
     case 2:
-        apt = _create_file_apt(argv[0], c, argv[1], DEFAULT_LOGFILE_MAXSIZE);
+        logger = _create_file_logger(argv[0], c, argv[1], DEFAULT_LOGFILE_MAXSIZE);
         break;
     case 3:
-        apt = _create_file_apt(argv[0], c, argv[1], atoi(argv[2]));
+        logger = _create_file_logger(argv[0], c, argv[1], atoi(argv[2]));
         break;
     default:
         return -1;
@@ -261,18 +261,18 @@ _property_set_fileapt(struct _catagory* c, int argc, char** argv){
 }
 
 int
-_property_set_rfileapt(struct _catagory* c, int argc, char** argv){
+_property_set_rfilelogger(struct _catagory* c, int argc, char** argv){
     if (argc < 2) return -2;
-    adapter_accept apt = 0;
+    logger_logging logger = 0;
     switch (argc){
     case 2:
-        apt = _create_rfile_apt(argv[0], c, argv[1], DEFAULT_LOGFILE_RSIZE,DEFAULT_LOGFILE_RCOUNT);
+        logger = _create_rfile_logger(argv[0], c, argv[1], DEFAULT_LOGFILE_RSIZE,DEFAULT_LOGFILE_RCOUNT);
         break;
     case 3:
-        apt = _create_rfile_apt(argv[0], c, argv[1], atoi(argv[2]),DEFAULT_LOGFILE_RCOUNT);
+        logger = _create_rfile_logger(argv[0], c, argv[1], atoi(argv[2]),DEFAULT_LOGFILE_RCOUNT);
         break;
     case 4:
-        apt = _create_rfile_apt(argv[0], c, argv[1], atoi(argv[2]), atoi(argv[3]));
+        logger = _create_rfile_logger(argv[0], c, argv[1], atoi(argv[2]), atoi(argv[3]));
     default:
         return -1;
     }
@@ -280,35 +280,36 @@ _property_set_rfileapt(struct _catagory* c, int argc, char** argv){
 }
 
 int
-_property_set_consoleapt(struct _catagory* c, int argc, char** argv){
+_property_set_consolelogger(struct _catagory* c, int argc, char** argv){
     if (1 != argc) return -1;
-    adapter_accept apt = _create_console_apt(argv[0], c);
-    return apt ? 0 : -1;
+    //logger_logging logger = _create_console_logger(argv[0], c);
+    //return logger ? 0 : -1;
+    return 0;
 }
 
 int
-_property_set_layout(adapter_accept apt, int argc, char** argv){
+_property_set_layout(struct _logger* logger, int argc, char** argv){
     if (argc < 1)return -1;
     if (0 == strcmp(argv[0], TINYLOG_TYPE_LAYOUT_BASIC)){
-        return _property_create_basiclayout(apt, argc, argv);
+        return _property_create_basiclayout(logger, argc, argv);
     } else if (0 == strcmp(argv[0], TINYLOG_TYPE_LAYOUT_PATTERN)){
-        return _property_create_patternlayout(apt, argc, argv);
+        return _property_create_patternlayout(logger, argc, argv);
     }
     return -1;
 }
 
 int
-_property_create_basiclayout(adapter_accept apt, int argc, char** argv){
-    if (!create_base_layout(apt)){
+_property_create_basiclayout(struct _logger* logger, int argc, char** argv){
+    if (!create_base_layout(logger)){
         return -1;
     }
     return 0;
 }
 
 int
-_property_create_patternlayout(adapter_accept apt, int argc, char** argv){
+_property_create_patternlayout(struct _logger* logger, int argc, char** argv){
     if (argc != 2) return -2;
-    if (!create_pattern_layout(apt,argv[1])){
+    if (!create_pattern_layout(logger,argv[1])){
         return -1;
     }
     return 0;

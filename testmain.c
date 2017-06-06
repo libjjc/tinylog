@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include "tinylog.h"
 #include "catagory.h"
-#include "adapter.h"
+#include "logger.h"
 #include "logdef.h"
 #include <string.h>
 

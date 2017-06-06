@@ -6,16 +6,16 @@
 #include "logstr.h"
 
 #define MAX_CATAGORY_CHILDREN 16
-#define MAX_CATAGORY_ADAPTERS 16
+#define MAX_CATAGORY_loggerS 16
 
 struct _catagory {
     int priority;
-    int countAdapters;
+    int countLoggers;
     int countChildren;
     ls_t name;
     struct _catagory* parent;
     struct _catagory* children[MAX_CATAGORY_CHILDREN];
-    _callback_ptr adapters[MAX_CATAGORY_ADAPTERS];
+    _callback_ptr loggers[MAX_CATAGORY_loggerS];
     char eoc[];
 };
 
@@ -49,27 +49,27 @@ int
 removeCatagory(struct _catagory* parent, struct _catagory* child);
 
 struct _catagory*
-findCatagory(struct _catagory* parent, const char* name);
+_find_catagory(struct _catagory* parent, const char* name);
 
 int
-addAdapter(struct _catagory* cg, _callback_ptr ada);
+_add_logger(struct _catagory* cg, _callback_ptr ada);
 
 int
-removeAdapter(struct _catagory* cg, _callback_ptr ada);
+_remove_logger(struct _catagory* cg, _callback_ptr ada);
 
 int
-_replace_adapter(struct _catagory* cg, _callback_ptr old,_callback_ptr apt);
+_replace_logger(struct _catagory* cg, _callback_ptr old,_callback_ptr logger);
 
 bool
-hasAdapter(struct _catagory* cq, _callback_ptr ada);
+_has_logger(struct _catagory* cq, _callback_ptr ada);
 
 bool
-has_apt_recursive(struct _catagory* cq, _callback_ptr apt);
+has_logger_recursive(struct _catagory* cq, _callback_ptr logger);
 
 _callback_ptr
-find_adapter(struct _catagory* cq, const char* aptname);
+find_logger(struct _catagory* cq, const char* loggername);
 
 int
-capacityLogging(struct _catagory* cata, struct _log_msg* msg);
+_catagory_logging(struct _catagory* cata, struct _log_msg* msg);
 
 #endif//LOG_CATAGORY_HH

@@ -3,7 +3,7 @@
 #include <string.h>
 #include "logdef.h"
 #include "catagory.h"
-#include "adapter.h"
+#include "logger.h"
 
 extern struct _catagory gl_logger_root;
 
@@ -30,7 +30,7 @@ createCatagory(struct _catagory* parent, int priority, const char* name){
     cg->parent = parent;
     cg->priority = priority;
     cg->name = lscreate(name, strlen(name));
-    cg->countAdapters = 0;
+    cg->countLoggers = 0;
     cg->countChildren = 0;
     if (parent){
         parent->children[parent->countChildren] = cg;
@@ -47,7 +47,7 @@ createNullCatagory(const char* name){
     cg->parent = NULL;
     cg->priority = TLL_NOTSET;
     cg->name = lscreate(name,strlen(name));
-    cg->countAdapters = 0;
+    cg->countLoggers = 0;
     cg->countChildren = 0;
     return cg;
 }
@@ -56,18 +56,18 @@ createNullCatagory(const char* name){
 
 struct _catagory*
 get_create_catagory(const struct _catagory* parent,const char* name){
-    struct _catagory* parent_cata = findCatagory(&gl_logger_root,name);
+    struct _catagory* parent_cata = _find_catagory(&gl_logger_root,name);
     struct _catagory* cata = NULL;
     if (!parent_cata){
         parent_cata = &gl_logger_root;
     } else{
-        parent_cata = findCatagory(&gl_logger_root, name);
+        parent_cata = _find_catagory(&gl_logger_root, name);
         if (!parent_cata){
             parent_cata = createCatagory(&gl_logger_root, TLL_NOTSET, name);
         }
     }
     if (!parent_cata) return NULL;
-    cata = findCatagory(&gl_logger_root, name);
+    cata = _find_catagory(&gl_logger_root, name);
     if (!cata){
         cata = createCatagory(parent_cata, TLL_NOTSET, name);
     }
@@ -78,11 +78,11 @@ void
 freeCatagory(struct _catagory* cg){
     if (!cg){
         if(cg->name)lsfree(cg->name);
-        for (int i = 0; i < cg->countAdapters; i++){
-            adapter_accept apt = cg->adapters[i];
-			adapter_free free = _get_apt_free(apt);
+        for (int i = 0; i < cg->countLoggers; i++){
+            logger_logging logger = cg->loggers[i];
+			logger_free free = _get_logger_free(logger);
 			if (free) {
-				free(apt);
+				free(logger);
 			}
         }
         for (int i = 0; i < cg->countChildren; i++){
@@ -125,59 +125,61 @@ removeCatagory(struct _catagory* parent, struct _catagory* child){
 }
 
 struct _catagory*
-findCatagory(struct _catagory* parent, const char* name){
-    struct _catagory* cg = NULL;
-    if (!parent) return cg;
-    for (int i = 0; i < parent->countChildren; i++){
-        if (!parent->children[i] && parent->children[i]->name && !lscmp(parent->children[i]->name, name)){
-            cg = parent->children[i];
-            break;
+_find_catagory(struct _catagory* parent, const char* name){
+    struct _catagory* cg = parent ? parent : &gl_logger_root;
+    struct _catagory* result = NULL;
+    if (cg && cg->name && !lscmp(cg->name, name)){
+        return cg;
+    }
+    for (int i = 0; i < cg->countChildren; i++){
+        if (result = _find_catagory(cg->children[i], name)){
+            return result;
         }
     }
-    return cg;
+    return result;
 }
 
 int
-addAdapter(struct _catagory* cg, adapter_accept apt){
-    if (!cg || !apt) return -1;
-    cg->adapters[cg->countAdapters] = apt;
-    cg->countAdapters++;
+_add_logger(struct _catagory* cg, logger_logging logger){
+    if (!cg || !logger) return -1;
+    cg->loggers[cg->countLoggers] = logger;
+    cg->countLoggers++;
     return 0;
 }
 
 int
-removeAdapter(struct _catagory* cg, adapter_accept ada){
+_remove_logger(struct _catagory* cg, logger_logging ada){
     if (!cg || !ada) return -1;
     int index = 0;
-    for (; index <= cg->countAdapters; index++){
-        if (cg->adapters[index] == ada){
+    for (; index <= cg->countLoggers; index++){
+        if (cg->loggers[index] == ada){
             break;
         }
     }
-    if (index >= cg->countAdapters) return -1;
+    if (index >= cg->countLoggers) return -1;
 
-    char* s = (char*)&cg->adapters[0];
-    char* e = (char*)&cg->adapters[MAX_CATAGORY_ADAPTERS];
-    char* p = (char*)&cg->adapters[index];
-    if (memmove_s(p, s - p, p + sizeof(struct _adapter*), s - p - 1)){
+    char* s = (char*)&cg->loggers[0];
+    char* e = (char*)&cg->loggers[MAX_CATAGORY_loggerS];
+    char* p = (char*)&cg->loggers[index];
+    if (memmove_s(p, s - p, p + sizeof(struct _logger*), s - p - 1)){
         return -1;
     }
-    cg->countAdapters--;
+    cg->countLoggers--;
 
     return 0;
 }
 
 int
-_replace_adapter(struct _catagory* cg, _callback_ptr old, _callback_ptr apt){
-    for (int i = 0; i < cg->countAdapters; i++){
-        if (old == cg->adapters[i]){
-            cg->adapters[i] = apt;
-            _set_apt_catagory(apt,cg);
+_replace_logger(struct _catagory* cg, _callback_ptr old, _callback_ptr logger){
+    for (int i = 0; i < cg->countLoggers; i++){
+        if (old == cg->loggers[i]){
+            cg->loggers[i] = logger;
+            _set_logger_catagory(logger,cg);
             return 0;
         }
     }
-    for (int i = 0; i < cg->countAdapters; i++){
-        if (!_replace_adapter(cg->children[i], old, apt)){
+    for (int i = 0; i < cg->countLoggers; i++){
+        if (!_replace_logger(cg->children[i], old, logger)){
             return 0;
         }
     }
@@ -185,47 +187,47 @@ _replace_adapter(struct _catagory* cg, _callback_ptr old, _callback_ptr apt){
 }
 
 bool
-hasAdapter(struct _catagory* cg, adapter_accept ada){
+_has_logger(struct _catagory* cg, logger_logging ada){
     if (!cg || !ada) return false;
     int index = 0;
-    for (; index <= cg->countAdapters; index++){
-        if (cg->adapters[index] == ada){
+    for (; index <= cg->countLoggers; index++){
+        if (cg->loggers[index] == ada){
             break;
         }
     }
-    if (index >= cg->countAdapters) return false;
+    if (index >= cg->countLoggers) return false;
     return true;
 }
 
 int
-capacityLogging(struct _catagory* cata, struct _log_msg* msg){
+_catagory_logging(struct _catagory* cata, struct _log_msg* msg){
     if (!cata || !msg) return -1;
     int ret = 0;
-    for (int i = 0; i < cata->countAdapters; i++){
-        adapter_accept adapter = cata->adapters[i];
-        ret &= adapter(adapter, msg);
+    for (int i = 0; i < cata->countLoggers; i++){
+        logger_logging adloggerer = cata->loggers[i];
+        ret &= adloggerer(adloggerer, msg);
     }
     for (int i = 0; i < cata->countChildren;i++){
-        ret &= capacityLogging(cata->children[i], msg);
+        ret &= _catagory_logging(cata->children[i], msg);
     }
     return ret;
 }
 
 bool
-has_apt_recursive(struct _catagory* cq, struct _adapter* apt){
+has_logger_recursive(struct _catagory* cq, struct _logger* logger){
     return false;
 }
 
 _callback_ptr
-find_adapter(struct _catagory* cq, const char* aptname){
-    adapter_accept apt = NULL;
-    for (int i = 0; i < cq->countAdapters; i++){
-        apt = cq->adapters[i];
-        if (!lscmp(_get_apt_name(apt),aptname)) return apt;
+find_logger(struct _catagory* cq, const char* loggername){
+    logger_logging logger = NULL;
+    for (int i = 0; i < cq->countLoggers; i++){
+        logger = cq->loggers[i];
+        if (!lscmp(_get_logger_name(logger),loggername)) return logger;
     }
     for (int i = 0; i < cq->countChildren; i++){
-        apt = find_adapter(cq->children[i], aptname);
-        if (apt) return apt;
+        logger = find_logger(cq->children[i], loggername);
+        if (logger) return logger;
     }
-    return apt;
+    return logger;
 }

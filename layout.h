@@ -3,34 +3,33 @@
 
 #include "logstr.h"
 #include "tick.h"
-
-struct _adapter;
+struct _logger;
 struct _log_ts;
-typedef void* callback_ptr;
-typedef ls_t(*layout_callback)(callback_ptr ,struct _log_msg* );
-typedef void(*layout_free)(layout_callback layout);
+struct _layout;
+typedef ls_t(*layout_t)(void* ,struct _log_msg* );
+typedef void(*layout_free)(layout_t layout);
 
 struct _layout {
-    layout_callback layout;
+    layout_t layout;
     layout_free free;
     struct _log_ts ts;
     ls_t pattern;
 };
 
-layout_callback
-create_pattern_layout(callback_ptr apt, ls_t pattern);
+layout_t
+create_pattern_layout(struct _logger* logger, ls_t pattern);
 
-layout_callback
-create_base_layout(callback_ptr apt);
-
-void
-free_layout(layout_callback layout);
+layout_t
+create_base_layout(struct _logger* logger);
 
 void
-layout_general_free(layout_callback layout);
+free_layout(layout_t layout);
+
+void
+layout_general_free(layout_t layout);
 
 int
-set_layout_pattern(layout_callback layout,const char* pattern);
+set_layout_pattern(layout_t layout,const char* pattern);
 
 
 
@@ -87,9 +86,9 @@ set_layout_pattern(layout_callback layout,const char* pattern);
  * %%			A % sign	                              %
  */
 ls_t 
-patternLayout(layout_callback layout ,struct _log_msg* msg);
+patternLayout(struct _layout* layout ,struct _log_msg* msg);
 
 ls_t
-basicLayout(layout_callback layout ,struct _log_msg* msg);
+basicLayout(struct _layout* layout ,struct _log_msg* msg);
 
 #endif//LOG_LAYOUT_HH
