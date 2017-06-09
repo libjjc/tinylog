@@ -15,48 +15,35 @@ struct _log_script_tree {
 
 #define TINYLOG_PREFIX "tinylog"
 
-#define TINYLOG_TYPE_ROOT "root"
-#define TINYLOG_TYPE_CATAGORY "catagory"
-#define TINYLOG_TYPE_logger "adloggerer"
-#define TINYLOG_TYPE_LAYOUT "layout"
+#define TL_TYPE_ROOT "root"
+#define TL_TYPE_CATAGORY "catagory"
+#define TL_TYPE_LOGGER "logger"
+#define TL_TYPE_LAYOUT "layout"
 
-#define TINYLOG_TYPE_logger_FILE "file"
-#define TINYLOG_TYPE_logger_RFILE "rollingfile"
-#define TINYLOG_TYPE_logger_CONSOLE "console"
+#define TL_ACT_LAYOUTING "layouting"
+#define TL_ACT_LOGGING "logging"
 
-#define TINYLOG_TYPE_LAYOUT_BASIC "basiclayout"
-#define TINYLOG_TYPE_LAYOUT_PATTERN "patternlayout"
-
-#define TINYLOG_PROPERTY_PRIORITY "priority"
-
-#define TINYLOG_PROPERTY_logger "adloggerer"
-#define TINYLOG_PROPERTY_FILE_logger "fileadloggerer"
-#define TINYLOG_PROPERTY_RFILE_logger "rfileadloggerer"
-#define TINYLOG_PROPERTY_CONSOLE_logger "consoleadloggerer"
-
-
-
-
-#define TINYLOG_logger_LAYOUT "layout"
-#define TINYLOG_logger_LOGFILE "logfile"
-#define TINYLOG_logger_MAXSIZE "maxsize"
-#define TINYLOG_logger_RCOUNT "rollingcount"
-#define TINYLOG_logger_RSIZE "rollingsize"
-
-#define TINYLOG_CSL_SOUT "stdout"
-#define TINYLOG_CSL_SIN "stdin"
-#define TINYLOG_CSL_SERR "stderr"
-
-#define TINYLOG_LAYOUT_PATTERN "pattern"
+#define TL_PROPERTY_FILELOGGER "file"
+#define TL_PROPERTY_ROLLINGFILELOGGER "rollingFile"
+#define TL_PROPERTY_CONSOLELOGGER "console"
+#define TL_PROPERTY_BASICLAYOUT "basicLayout"
+#define TL_PROPERTY_PATTERNLAYOUT "patternLayout"
+#define TL_PROPERTY_PRIORITY "priority"
+#define TL_PROPERTY_LOGFILE "logfile"
+#define TL_PROPERTY_MAXSIZE "maxsize"
+#define TL_PROPERTY_MAXROLLING "maxrolling"
+#define TL_PROPERTY_STREAM "stream"
+#define TL_PROPERTY_SOUT "stdout"
+#define TL_PROPERTY_SIN "stdin"
+#define TL_PROPERTY_SERR "stderr"
+#define TL_PROPERTY_PATTERN "pattern"
+#define TL_PROPERTY_LOGGERIMPL "logimpl"
 
 int
-get_priority(const ls_t prior);
-
+_get_priority(const ls_t prior);
 
 int
-logconfigure(const char* configfile);
-
-
+_tinylog_configure(const char* configfile);
 
 #endif//TINYLOG_CONFIG_HH
 

@@ -22,120 +22,103 @@
 #define _logger_from_priv(priv)\
     ((struct _logger*)(&(priv)-(int)(&((struct _logger*)(NULL))->priv)))
 
-logger_t
+_logger_t
 _create_logger(){
     struct _logger* logger =
         (struct _logger*)malloc(sizeof(struct _logger*));
     if (!logger) return NULL;
-    logger->log = 0;
-    logger->free = _free_logger;
-    return logger->log;
+    logger->logging = 0;
+    logger->name = 0;
+    return logger;
 }
 
 void
-_free_logger(logger_t logger){
-    struct _logger* _logger = _logger_addr(logger);
-    if (!_logger) return;
-    if (_logger->name){
-        lsfree(_logger->name);
+_free_logger(_logger_t logger){
+    if (!logger) return;
+    if (logger->name){
+        lsfree(logger->name);
     }
     //@todo
     //    free layout
     //
-    if (_logger->priv){
-        if (_logger->privfree){
-            _logger->privfree(_logger->priv);
+    if (logger->priv){
+        if (logger->privfree){
+            logger->privfree(logger->priv);
         } else{
-            free(_logger->priv);
+            free(logger->priv);
         }
     }
-    if (_logger->free){
-        _logger->free(logger);
-    }
-    
+    free(logger);
 }
 
 int
-_reopen_logger(logger_t logger){
-    struct _logger* _logger = _logger_addr(logger);
+_reopen_logger(_logger_t _logger){
     if (_logger&& _logger->reopen){
-        return _logger->reopen(logger);
+        return _logger->reopen(_logger);
     }
     return -1;
 }
 
 const ls_t 
-_get_logger_name(logger_t logger){
-	return _logger_addr(logger)->name;
-}
-
-logger_free
-_get_logger_free(logger_t logger){
-    return _logger_addr(logger)->free;
-}
-
-layout_t
-_get_logger_layout(logger_t logger)
-{
-    return _logger_addr(logger)->layout;
+_get_logger_name(_logger_t logger){
+    return logger->name;
 }
 
 logger_owner_type
-_get_logger_owner(logger_t logger){
-    return _logger_addr(logger)->owner;
+_get_logger_owner(_logger_t logger){
+    return logger->owner;
 }
 
 void 
-_set_logger_name(logger_t logger,const char* name)
+_set_logger_name(_logger_t _logger,const char* name)
 {
-	struct _logger* _logger = _logger_addr(logger);
 	if (_logger->name) {
         _logger->name = lscpy(_logger->name, name);
     } else{
         _logger->name = lscreate(name, strlen(name));
     }
-	return 0;
 }
 
 void
-_set_logger_owner(logger_t logger,logger_owner_type owner){
-    _logger_addr(logger)->owner = owner;
+_set_logger_owner(_logger_t logger,logger_owner_type owner){
+    logger->owner = owner;
 }
 
 
 
 void
-_set_logger_priv(logger_t logger, logger_priv_t priv){
-    _logger_addr(logger)->priv = priv;
+_set_logger_priv(_logger_t logger, logger_priv_t priv){
+    logger->priv = priv;
 }
 
 logger_priv_t
-_get_logger_priv(logger_t logger){
-    return _logger_addr(logger)->priv;
+_get_logger_priv(_logger_t logger){
+    return logger->priv;
 }
 
 
 
 
 _file_priv_t
-_create_file_priv(logger_t lgr){
+_create_file_priv(_logger_t logger){
     _file_priv_t fp = malloc(sizeof(struct _file_priv));
     fp->flag = O_APPEND | O_WRONLY | O_CREAT | O_TRUNC;
     fp->mode = O_TEXT | O_NOINHERIT;
     fp->size = 0;
     fp->maxsize = DEFAULT_LOGFILE_MAXSIZE;
-    struct _logger* logger = _logger_addr(lgr);
-    if (logger&& lgr){
+    fp->logfile = 0;
+    if (logger){
         logger->priv = fp;
         logger->privfree = _free_file_priv;
         logger->reopen = _file_logger_reopen;
-        logger->log = _file_logger_logging;
+        logger->logging = _file_logger_logging;
     }
     return fp;
 }
 
 void
-_free_file_priv(_file_priv_t priv){
+_free_file_priv(logger_priv_t _priv){
+    _file_priv_t priv = (_file_priv_t)_priv;
     if (!priv) return;
     if (priv->logfile)lsfree(priv->logfile);
     free(priv);
@@ -166,10 +149,9 @@ _get_file_maxsize(_file_priv_t priv){
 }
 
 int
-_file_logger_reopen(_file_priv_t priv){
-    //struct _logger* logger = _logger_from_priv(priv); 
-    //if (!logger) return -1;
-
+_file_logger_reopen(_logger_t logger){
+    if (!logger) return -1;
+    _file_priv_t priv = (_file_priv_t)logger->priv;
     if (!(priv->fd = _open(priv->logfile, priv->flag, priv->mode))){
         return -1;
     }
@@ -179,12 +161,12 @@ _file_logger_reopen(_file_priv_t priv){
 }
 
 int
-_file_logger_logging(_file_priv_t priv,struct _log_msg* msg){
-    struct _logger* logger = _logger_from_priv(priv);
+_file_logger_logging(_logger_t logger,struct _log_msg* msg){
     if (!logger || !msg) return -1;
+    _file_priv_t priv = (_file_priv_t)logger->priv;
     ls_t ls = 0;
     if (logger->layout){
-        ls = logger->layout(logger->layout, msg);
+        ls = logger->layout->layout(logger->layout, msg);
     } else{
         ls = lscreate(msg->msg, lslen(msg->msg));
     }
@@ -203,28 +185,29 @@ _file_logger_logging(_file_priv_t priv,struct _log_msg* msg){
 
 
 _rfile_priv_t
-_create_rfile_priv(logger_t lgr){
+_create_rfile_priv(_logger_t logger){
     _rfile_priv_t priv = malloc(sizeof(struct _rfile_priv));
+    priv->fp.logfile = 0;
     priv->fp.flag = O_APPEND | O_WRONLY | O_CREAT;
     priv->fp.mode = O_TEXT | O_NOINHERIT;
     priv->rindex = 0;
     priv->rmax = DEFAULT_LOGFILE_RCOUNT;
     priv->fp.maxsize = DEFAULT_LOGFILE_RSIZE;
     priv->extw = (long)log10(priv->rmax) + 1;
-    struct _logger* logger = _logger_addr(lgr);
-    if (logger&& lgr){
+    if (logger){
         logger->priv = priv;
         logger->privfree = _free_rfile_priv;
         logger->reopen = _rfile_logger_reopen;
-        logger->log = _rfile_logger_logging;
+        logger->logging = _rfile_logger_logging;
     }
     return priv;
 }
 
 void
-_free_rfile_priv(_rfile_priv_t priv){
-    if (priv && priv->fp.logfile) lsfree(priv->fp.logfile);
-    free(priv);
+_free_rfile_priv(logger_priv_free priv){
+    _rfile_priv_t _priv = (_rfile_priv_t)priv;
+    if (_priv&&_priv->fp.logfile) lsfree(_priv->fp.logfile);
+    free(_priv);
 }
 
 _file_priv_t
@@ -244,7 +227,8 @@ _get_rfile_rmax(_rfile_priv_t priv){
 }
 
 int
-_rfile_logger_reopen(_rfile_priv_t priv){
+_rfile_logger_reopen(_logger_t logger){
+    _rfile_priv_t priv = (_rfile_priv_t)logger->priv;
     priv->rmax = priv->rmax <= 0? 1: priv->rmax;
     priv->extw = (long)log10(priv->rmax) + 1;
     ls_t back_path = lsinitcpyls(priv->fp.logfile);
@@ -290,19 +274,19 @@ _rolling_over(_rfile_priv_t logger){
 }
 
 int
-_rfile_logger_logging(_rfile_priv_t priv , struct _log_msg* msg){
+_rfile_logger_logging(_logger_t logger , struct _log_msg* msg){
+    _rfile_priv_t priv = (_rfile_priv_t)logger->priv;
     if (!priv || !msg) return -1;
-    struct _logger* _logger = _logger_from_priv(priv);
     ls_t ls = 0;
-    if (_logger&& _logger->layout){
-        ls = (_logger->layout)(_logger->layout, msg);
+    if (logger&& logger->layout){
+        ls = (logger->layout->layout)(logger->layout, msg);
     } else{
         ls = lscreate(msg->msg,lslen(msg->msg));
     }
     if (!ls) return 0;
 	if (priv->fp.size + lslen(ls) >= priv->fp.maxsize*1024*1024) {
         _close(priv->fp.fd);
-        _rolling_over(_logger);
+        _rolling_over(priv);
 		priv->fp.size = 0;
         priv->fp.fd = _open(priv->fp.logfile, priv->fp.flag, priv->fp.mode);
         if (!priv->fp.fd) {
@@ -319,20 +303,19 @@ _rfile_logger_logging(_rfile_priv_t priv , struct _log_msg* msg){
 
 
 _console_priv_t
-_create_console_priv(logger_t lgr){
+_create_console_priv(_logger_t logger){
     _console_priv_t priv = malloc(sizeof(struct _console_priv));
-    struct _logger* logger = _logger_addr(lgr);
-    if (logger&& lgr){
+    if (logger){
         logger->priv = priv;
         logger->privfree = _free_console_priv;
         logger->reopen = _console_logger_reopen;
-        logger->log = _console_logger_logging;
+        logger->logging = _console_logger_logging;
     }
     return priv;
 }
 
 void
-_free_console_priv(_console_priv_t priv){
+_free_console_priv(logger_priv_t priv){
     free(priv);
 }
 
@@ -347,16 +330,17 @@ _get_console_stream(_console_priv_t priv){
 }
 
 int
-_console_logger_reopen(_console_priv_t priv){
+_console_logger_reopen(_logger_t logger){
+    _console_priv_t priv = (_console_priv_t)logger->priv;
     return priv&& priv->stream ? 0 : -1;
 }
 
 int
-_console_logger_logging(_console_priv_t priv, struct _log_msg* msg){
-    struct _logger* _logger = _logger_from_priv(priv);
+_console_logger_logging(_logger_t logger, struct _log_msg* msg){
+    _console_priv_t priv = (_console_priv_t)logger->priv;
     ls_t ls = 0;
-    if (_logger&& _logger->layout){
-        ls = (_logger->layout)(_logger->layout, msg);
+    if ( logger->layout){
+        ls = logger->layout->layout(logger->layout, msg);
     } else{
         ls = lscreate(msg->msg,lslen(msg->msg));
     }
@@ -369,11 +353,10 @@ _console_logger_logging(_console_priv_t priv, struct _log_msg* msg){
 
 
 
-logger_t
+_logger_t
 _create_file_logger(const char* name, struct _catagory* owner, 
                     const char* logfile){
-    logger_t logger = _create_logger();
-    struct _logger* _logger = _logger_addr(logger);
+    _logger_t logger = _create_logger();
     if (!logger) return NULL;
     _file_priv_t priv = _create_file_priv(logger);
 
@@ -383,54 +366,52 @@ _create_file_logger(const char* name, struct _catagory* owner,
         _add_logger(owner, logger);
     }
     
-    create_base_layout(logger);
+    _create_base_layout(logger);
 
     if (owner) {
         _add_logger(owner, logger);
-        _logger->owner = owner;
+        logger->owner = owner;
     }
     return logger;
 }
 
-logger_t
+_logger_t
 _create_rfile_logger(const char* name, logger_owner_type owner,
                      const char* logfile){
-    logger_t logger = _create_logger();
-    struct _logger* _logger = _logger_addr(logger);
+    _logger_t logger = _create_logger();
     if (!logger) return NULL;
     _rfile_priv_t priv = _create_rfile_priv(logger);
 
     _set_logger_name(logger, name);
-    _set_file_path(priv->fp.logfile, logfile);
+    _set_file_path(&priv->fp, logfile);
     if (owner){
         _add_logger(owner, logger);
     }
     
-    create_base_layout(logger);
+    _create_base_layout(logger);
 
     if (owner) {
         _add_logger(owner, logger);
-        _logger->owner = owner;
+        logger->owner = owner;
     }
     return logger;
 }
 
-logger_t
+_logger_t
 _create_console_logger(const char* name, logger_owner_type owner,
                        int stream){
-    logger_t logger = _create_logger();
-    struct _logger* _logger = _logger_addr(logger);
+    _logger_t logger = _create_logger();
     if (!logger) return NULL;
-    _rfile_priv_t priv = _create_rfile_priv(logger);
+    _console_priv_t priv = _create_console_priv(logger);
 
     _set_logger_name(logger, name);
     _set_console_stream(priv,stream);
     
-    create_base_layout(logger);
+    _create_base_layout(logger);
 
     if (owner) {
         _add_logger(owner, logger);
-        _logger->owner = owner;
+        logger->owner = owner;
     }
     return logger;
 }

@@ -8,22 +8,22 @@
 extern struct _catagory gl_logger_root;
 
 bool
-bigger_filter(int priorityMsg, int priorityAda){
+_bigger_filter(int priorityMsg, int priorityAda){
     return priorityMsg > priorityAda;
 }
 
 bool
-smaller_filter(int priorityMsg, int priorityAda){
+_smaller_filter(int priorityMsg, int priorityAda){
     return priorityMsg < priorityAda;
 }
 
 bool
-equal_filter(int priorityMsg, int priorityAda){
+_equal_filter(int priorityMsg, int priorityAda){
     return priorityMsg == priorityAda;
 }
 
 struct _catagory*
-createCatagory(struct _catagory* parent, int priority, const char* name){
+_create_catagory(struct _catagory* parent, int priority, const char* name){
     struct _catagory* cg;
     cg = (struct _catagory*)malloc(sizeof(struct _catagory) + 1);
     if (!cg) return NULL;
@@ -40,7 +40,7 @@ createCatagory(struct _catagory* parent, int priority, const char* name){
 }
 
 struct _catagory*
-createNullCatagory(const char* name){
+_create_null_catagory(const char* name){
     struct _catagory* cg;
     cg = (struct _catagory*)malloc(sizeof(struct _catagory) + 1);
     if (!cg) return NULL;
@@ -55,7 +55,7 @@ createNullCatagory(const char* name){
 
 
 struct _catagory*
-get_create_catagory(const struct _catagory* parent,const char* name){
+_get_create_catagory(const struct _catagory* parent,const char* name){
     struct _catagory* parent_cata = _find_catagory(&gl_logger_root,name);
     struct _catagory* cata = NULL;
     if (!parent_cata){
@@ -63,37 +63,34 @@ get_create_catagory(const struct _catagory* parent,const char* name){
     } else{
         parent_cata = _find_catagory(&gl_logger_root, name);
         if (!parent_cata){
-            parent_cata = createCatagory(&gl_logger_root, TLL_NOTSET, name);
+            parent_cata = _create_catagory(&gl_logger_root, TLL_NOTSET, name);
         }
     }
     if (!parent_cata) return NULL;
     cata = _find_catagory(&gl_logger_root, name);
     if (!cata){
-        cata = createCatagory(parent_cata, TLL_NOTSET, name);
+        cata = _create_catagory(parent_cata, TLL_NOTSET, name);
     }
     return cata;
 }
 
 void 
-freeCatagory(struct _catagory* cg){
+_free_catagory(struct _catagory* cg){
     if (!cg){
         if(cg->name)lsfree(cg->name);
         for (int i = 0; i < cg->countLoggers; i++){
-            logger_logging logger = cg->loggers[i];
-			logger_free free = _get_logger_free(logger);
-			if (free) {
-				free(logger);
-			}
+            _logger_t logger = cg->loggers[i];
+            _free_logger(logger);
         }
         for (int i = 0; i < cg->countChildren; i++){
-            freeCatagory(cg->children[i]);
+            _free_catagory(cg->children[i]);
         }
         free(cg);
     }
 }
 
 int
-addCatagory(struct _catagory* parent, struct _catagory* child){
+_add_catagory(struct _catagory* parent, struct _catagory* child){
     if (parent&&child){
         parent->children[parent->countChildren] = child;
         parent->countChildren++;
@@ -103,7 +100,7 @@ addCatagory(struct _catagory* parent, struct _catagory* child){
 }
 
 int
-removeCatagory(struct _catagory* parent, struct _catagory* child){
+_remove_catagory(struct _catagory* parent, struct _catagory* child){
     if (!parent || !child) return -1;
     int index = 0;
     for (; index <= parent->countChildren; index++){
@@ -140,7 +137,7 @@ _find_catagory(struct _catagory* parent, const char* name){
 }
 
 int
-_add_logger(struct _catagory* cg, logger_logging logger){
+_add_logger(struct _catagory* cg, _logger_t logger){
     if (!cg || !logger) return -1;
     cg->loggers[cg->countLoggers] = logger;
     cg->countLoggers++;
@@ -148,7 +145,7 @@ _add_logger(struct _catagory* cg, logger_logging logger){
 }
 
 int
-_remove_logger(struct _catagory* cg, logger_logging ada){
+_remove_logger(struct _catagory* cg, _logger_t ada){
     if (!cg || !ada) return -1;
     int index = 0;
     for (; index <= cg->countLoggers; index++){
@@ -174,7 +171,7 @@ _replace_logger(struct _catagory* cg, _callback_ptr old, _callback_ptr logger){
     for (int i = 0; i < cg->countLoggers; i++){
         if (old == cg->loggers[i]){
             cg->loggers[i] = logger;
-            _set_logger_catagory(logger,cg);
+            _set_logger_owner(logger,cg);
             return 0;
         }
     }
@@ -187,7 +184,7 @@ _replace_logger(struct _catagory* cg, _callback_ptr old, _callback_ptr logger){
 }
 
 bool
-_has_logger(struct _catagory* cg, logger_logging ada){
+_has_logger(struct _catagory* cg, _logger_t ada){
     if (!cg || !ada) return false;
     int index = 0;
     for (; index <= cg->countLoggers; index++){
@@ -204,8 +201,9 @@ _catagory_logging(struct _catagory* cata, struct _log_msg* msg){
     if (!cata || !msg) return -1;
     int ret = 0;
     for (int i = 0; i < cata->countLoggers; i++){
-        logger_logging adloggerer = cata->loggers[i];
-        ret &= adloggerer(adloggerer, msg);
+        _logger_t logger = cata->loggers[i];
+        ret &= logger->logging(logger, msg);
+        //ret &= logger(adloggerer, msg);
     }
     for (int i = 0; i < cata->countChildren;i++){
         ret &= _catagory_logging(cata->children[i], msg);
@@ -214,19 +212,19 @@ _catagory_logging(struct _catagory* cata, struct _log_msg* msg){
 }
 
 bool
-has_logger_recursive(struct _catagory* cq, struct _logger* logger){
+_has_logger_recursive(struct _catagory* cq, struct _logger* logger){
     return false;
 }
 
-_callback_ptr
-find_logger(struct _catagory* cq, const char* loggername){
-    logger_logging logger = NULL;
+_logger_t
+_find_logger(struct _catagory* cq, const char* loggername){
+    _logger_t logger = NULL;
     for (int i = 0; i < cq->countLoggers; i++){
         logger = cq->loggers[i];
         if (!lscmp(_get_logger_name(logger),loggername)) return logger;
     }
     for (int i = 0; i < cq->countChildren; i++){
-        logger = find_logger(cq->children[i], loggername);
+        logger = _find_logger(cq->children[i], loggername);
         if (logger) return logger;
     }
     return logger;

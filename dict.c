@@ -138,7 +138,9 @@ dtfind(dict_t dict, void* key){
     int index = hash& (dict->size - 1);
     dt_entity_t e = dict->table[index];
     if (e){
-        while (e&&dt_key_cmp(dict, key, e->key))e = e->next;
+        while (e&&dt_key_cmp(dict, key, e->key)){
+            e = e->next;
+        }
         if (e)return e;
     }
     return 0;

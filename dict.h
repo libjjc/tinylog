@@ -72,10 +72,10 @@ typedef int(*callback_foreach)(dict_t dict, dt_entity_t);
 #define dt_get_val_f64(e) (e)->val.f64
 
 #define dt_key_cmp(d,k1,k2)\
-    (d)->impl->keycmp ? (d)->impl->keycmp((k1),(k2)) : (k1) == (k2)
+    ((d)->impl->keycmp ? (d)->impl->keycmp((k1),(k2)) : (k1) == (k2))
 
 #define dt_hash_key(d,k)\
-    (d)->impl->hash(k)
+    ((d)->impl->hash(k))
     
 
 dict_t

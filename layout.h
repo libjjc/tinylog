@@ -6,31 +6,52 @@
 struct _logger;
 struct _log_ts;
 struct _layout;
-typedef ls_t(*layout_t)(void* ,struct _log_msg* );
-typedef void(*layout_free)(layout_t layout);
-
+typedef void* layout_priv_t;
+typedef void* self_t;
+typedef ls_t(*layouting)(struct _layout* ,struct _log_msg* );
+typedef void(*layout_priv_free)(layout_priv_t);
 struct _layout {
-    layout_t layout;
-    layout_free free;
+    layouting layout;
     struct _log_ts ts;
+    layout_priv_t priv;
+    layout_priv_free privfree;
+};
+typedef struct _layout* _layout_t;
+
+struct _pattern_layout_priv {
     ls_t pattern;
 };
+typedef struct _pattern_layout_priv* _lyt_pattern_priv_t;
+typedef void* _lyt_basic_priv_t;
 
-layout_t
-create_pattern_layout(struct _logger* logger, ls_t pattern);
-
-layout_t
-create_base_layout(struct _logger* logger);
-
-void
-free_layout(layout_t layout);
+_layout_t
+_create_layout(struct _logger* logger);
 
 void
-layout_general_free(layout_t layout);
+_free_layout(_layout_t layout);
 
-int
-set_layout_pattern(layout_t layout,const char* pattern);
 
+_lyt_basic_priv_t
+_create_basic_layout_impl(_layout_t layout);
+
+
+_lyt_pattern_priv_t
+_create_pattern_layout_impl(_layout_t layout);
+
+void
+_free_pattern_layout_impl(layout_priv_t layout);
+
+const char*
+_get_layout_pattern(layout_priv_t priv);
+
+void
+_set_layout_pattern(layout_priv_t priv,const char* pattern);
+
+_layout_t
+_create_pattern_layout(struct _logger* logger, ls_t pattern);
+
+_layout_t
+_create_base_layout(struct _logger* logger);
 
 
 /**
@@ -86,9 +107,9 @@ set_layout_pattern(layout_t layout,const char* pattern);
  * %%			A % sign	                              %
  */
 ls_t 
-patternLayout(struct _layout* layout ,struct _log_msg* msg);
+_pattern_layout(struct _layout* layout ,struct _log_msg* msg);
 
 ls_t
-basicLayout(struct _layout* layout ,struct _log_msg* msg);
+_basic_layout(struct _layout* layout ,struct _log_msg* msg);
 
 #endif//LOG_LAYOUT_HH

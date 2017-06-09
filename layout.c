@@ -9,73 +9,100 @@
 #include "logdef.h"
 #include "logmsg.h"
 
-#define _layout_addr(layout_type,callback)\
-    ((layout_type*)(&callback - (int)(&((layout_type*)(NULL))->layout)))
+#define _layout_addr(lyt)\
+    ((struct _layout*)(&(lyt) - (int)(&((struct _layout*)(NULL))->layout)))
 
-layout_t
-create_pattern_layout(struct _logger* logger,ls_t pattern){
-    struct _layout* pl =
-        (struct _layout*)malloc(sizeof(struct _layout));
-    if (pattern){
-        pl->pattern = lsinitcpyls(pattern);
-    } else{
-        pl->pattern = lscreate("", 0);
+#define _layout_from_impl(ipl)\
+    ((struct _layout*)(&(ipl) - (int)(&((struct _layout*)(NULL))->priv)))
+_layout_t
+_create_layout(struct _logger* logger){
+    struct _layout* layout = malloc(sizeof(struct _layout));
+    if (layout){
+        timestamp(&layout->ts);
     }
-    pl->layout = patternLayout;
-    pl->free = layout_general_free;
-    timestamp(&pl->ts);
-    if (logger){
-        _set_logger_layout(logger->log, pl->layout);
-    }
-    return pl->layout;
-}
-
-layout_t
-create_base_layout(struct _logger* logger){
-    struct _layout* pl =
-        (struct _layout*)malloc(sizeof(struct _layout));
-
-    pl->layout = basicLayout;
-    pl->free = layout_general_free;
-    timestamp(&pl->ts);
-    if (logger){
-        _set_logger_layout(logger->log, pl->layout);
-    }
-    return pl->layout;
+    return layout;
 }
 
 void
-free_layout(layout_t layout){
-    if (!layout) return;
-    layout_free _free = _layout_addr(struct _layout, layout)->free;
-    _free(layout);
-}
-
-void
-layout_general_free(layout_t layout){
-    if (!layout) return;
-    struct _layout *_layout = _layout_addr(struct _layout, layout);
-    if (_layout->pattern){
-        lsfree(_layout->pattern);
+_free_layout(_layout_t layout){
+    if (layout&& layout->privfree){
+        layout->privfree(layout->priv);
     }
-    free(_layout);
+    free(layout);
 }
 
-int
-set_layout_pattern(layout_t layout, const char* pattern){
-    if (!layout) return -1;
-    struct _layout* _layout = _layout_addr(struct _layout, layout);
-    _layout->layout = patternLayout;
-    if (_layout->pattern){
-        _layout->pattern = lscpy(_layout->pattern, pattern);
-    } else{
-        _layout->pattern = lscreate(pattern, strlen(pattern));
+_lyt_basic_priv_t
+_create_basic_layout_impl(_layout_t layout){
+    if (layout){
+        layout->layout = _basic_layout;
+        layout->priv = layout->privfree = 0;
     }
     return 0;
 }
 
+_lyt_pattern_priv_t
+_create_pattern_layout_impl(_layout_t layout){
+    _lyt_pattern_priv_t priv = malloc(sizeof(struct _pattern_layout_priv));
+    if (priv){
+        //@todo default pattern;
+        layout->priv = priv;
+        layout->privfree = _free_pattern_layout_impl;
+        layout->layout = _pattern_layout;
+    }
+    return priv;
+}
+
+void
+_free_pattern_layout_impl(layout_priv_t impl){
+    _lyt_pattern_priv_t priv = (_lyt_pattern_priv_t)impl;
+    if (priv && priv->pattern){
+        lsfree(priv->pattern);
+    }
+}
+
+const char*
+_get_layout_pattern(layout_priv_t priv){
+    _lyt_pattern_priv_t ppriv = (_lyt_pattern_priv_t)priv;
+    return ppriv ? ppriv->pattern : 0;
+}
+
+void
+_set_layout_pattern(layout_priv_t priv, const char* pattern){
+    _lyt_pattern_priv_t ppriv = (_lyt_pattern_priv_t)priv;
+    if (ppriv){
+        if (ppriv->pattern){
+            ppriv->pattern = lscpy(ppriv->pattern, pattern);
+        } else{
+            ppriv->pattern = lscreate(pattern,strlen(pattern));
+        }
+    }
+}
+
+_layout_t
+_create_pattern_layout(struct _logger* logger,ls_t pattern){
+    _layout_t layout = _create_layout(logger);
+    if (layout){
+        _lyt_pattern_priv_t priv = _create_pattern_layout_impl(layout);
+        if (priv){
+            _set_layout_pattern(priv, pattern);
+        }
+    }
+    
+    return layout;
+}
+
+_layout_t
+_create_base_layout(struct _logger* logger){
+    _layout_t layout = _create_layout(logger);
+    if (layout){
+        _create_basic_layout_impl(layout);
+    }
+    return layout;
+}
+
+
 ls_t 
-strftime_wrap(ls_t ls, const struct tm* t, const char* fmt){
+_strftime_wrap(ls_t ls, const struct tm* t, const char* fmt){
     int szbuf = 4 * strlen(fmt);
     char* buf = (char*)malloc(sizeof(char)*szbuf);
     if (!buf) return ls;
@@ -92,7 +119,7 @@ strftime_wrap(ls_t ls, const struct tm* t, const char* fmt){
 }
 
 ls_t
-dateconverse(ls_t ls, char ** fmt, struct _log_msg* msg){
+_dateconverse(ls_t ls, char ** fmt, struct _log_msg* msg){
     char* p = *fmt;
     char* s = NULL;
     char* e = NULL;
@@ -119,7 +146,7 @@ dateconverse(ls_t ls, char ** fmt, struct _log_msg* msg){
         if (l){
             char temp = *l;
             *l = 0;
-            strftime_wrap(ls, &t, s);
+            _strftime_wrap(ls, &t, s);
             *l = temp;
             char us[8] = { 0 };
             if (_itoa_s(msg->ts.usec, us, 8, 10)){
@@ -127,24 +154,26 @@ dateconverse(ls_t ls, char ** fmt, struct _log_msg* msg){
             } else{
                 ls = lscat(ls, us);
             }
-            strftime_wrap(ls, &t, l + 2);
+            _strftime_wrap(ls, &t, l + 2);
         } else{
             char temp = *e;
             *e = 0;
-            strftime_wrap(ls, &t, s);
+            _strftime_wrap(ls, &t, s);
             *e = temp;
         }
         *fmt = e + 1;
     } else{
-        strftime_wrap(ls, &t, "%Y-%m-%d %H:%M:%S");
+        _strftime_wrap(ls, &t, "%Y-%m-%d %H:%M:%S");
     }
     return ls;
 }
 
 ls_t 
-patternLayout(struct _layout* layout, struct _log_msg* msg){
-    struct _layout* ptl = _layout_addr(struct _layout, layout);
-    char*p = ptl->pattern;
+_pattern_layout(_layout_t layout, struct _log_msg* msg){
+    if (!layout)return 0;
+    _lyt_pattern_priv_t ppriv = layout->priv;
+    if (!ppriv) return 0;
+    char*p = ppriv->pattern;
     ls_t message = lscreate(0, 1024);
     char* cmdarg = NULL;
     int cmdlen = 0;
@@ -157,7 +186,7 @@ patternLayout(struct _layout* layout, struct _log_msg* msg){
                 break;
             case 'd':
                 p++;
-                message = dateconverse(message, &p, msg);
+                message = _dateconverse(message, &p, msg);
                 break;
             case 'm':
                 message = lscatls(message, msg->msg);
@@ -178,7 +207,7 @@ patternLayout(struct _layout* layout, struct _log_msg* msg){
                 message = lscat(message, "\\t");
                 break;
             case 'u':
-                message = lscatfmt(message, "%d", delta_ms(&ptl->ts,&msg->ts));
+                message = lscatfmt(message, "%d", delta_ms(&layout->ts,&msg->ts));
                 break;
             case 'x':
                 break;
@@ -194,7 +223,7 @@ patternLayout(struct _layout* layout, struct _log_msg* msg){
 
 
 ls_t
-basicLayout(struct _layout* layout,struct _log_msg* msg){
+_basic_layout(struct _layout* layout,struct _log_msg* msg){
     ls_t message = lsinitfmt("%ld [%s]: %s \n", msg->ts, msg->s_prior, msg->msg);
     return message;
 }

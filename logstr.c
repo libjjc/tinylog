@@ -274,12 +274,15 @@ lsfind(ls_t ls, const char* str, int offset){
     if (!ls || !str) return -1;
     if (offset >= lslen(ls)) return -1;
     int slen = strlen(str);
+   
     if (slen + offset > lslen(ls)) return -1;
+    
     for (int i = offset + slen; i < lslen(ls); i++){
-        while (slen-- > 0){
-            if (ls[i + slen] != str[slen]) break;
+        int cur = slen;
+        while (cur-- > 0){
+            if (ls[i + cur] != str[cur]) break;
         }
-        if (0 == slen) return i;
+        if (-1 == cur) return i;
     }
     return -1;
 }
@@ -301,6 +304,7 @@ lsfindls(ls_t ls, const ls_t str, int offset){
 
 ls_t
 lssubls(const ls_t ls, int begin, int end){
+    if (-1 == end) end = lslen(ls);
     if (end < begin){
         return NULL;
     }

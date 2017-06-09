@@ -8,6 +8,7 @@
 #define MAX_CATAGORY_CHILDREN 16
 #define MAX_CATAGORY_loggerS 16
 
+struct _logger;
 struct _catagory {
     int priority;
     int countLoggers;
@@ -15,38 +16,38 @@ struct _catagory {
     ls_t name;
     struct _catagory* parent;
     struct _catagory* children[MAX_CATAGORY_CHILDREN];
-    _callback_ptr loggers[MAX_CATAGORY_loggerS];
+    struct _logger* loggers[MAX_CATAGORY_loggerS];
     char eoc[];
 };
 
 typedef bool(*filter)(int priorityMsg, int priorityAda);
 
 bool 
-bigger_filter(int priorityMsg, int priorityAda);
+_bigger_filter(int priorityMsg, int priorityAda);
 
 bool 
-smaller_filter(int priorityMsg, int priorityAda);
+_smaller_filter(int priorityMsg, int priorityAda);
 
 bool 
-equal_filter(int priorityMsg, int priorityAda);
+_equal_filter(int priorityMsg, int priorityAda);
 
 struct _catagory*
-createCatagory(struct _catagory* parent,int priority,const char* name);
+_create_catagory(struct _catagory* parent,int priority,const char* name);
 
 struct _catagory*
-createNullCatagory(const char* name);
+_create_null_catagory(const char* name);
 
 struct _catagory*
-get_create_catagory(const struct _catagory* parent,const char* name);
+_get_create_catagory(const struct _catagory* parent,const char* name);
 
 void
-freeCatagory(struct _catagory* cg);
+_free_catagory(struct _catagory* cg);
 
 int
-addCatagory(struct _catagory* parent, struct _catagory* child);
+_add_catagory(struct _catagory* parent, struct _catagory* child);
 
 int
-removeCatagory(struct _catagory* parent, struct _catagory* child);
+_remove_catagory(struct _catagory* parent, struct _catagory* child);
 
 struct _catagory*
 _find_catagory(struct _catagory* parent, const char* name);
@@ -64,10 +65,10 @@ bool
 _has_logger(struct _catagory* cq, _callback_ptr ada);
 
 bool
-has_logger_recursive(struct _catagory* cq, _callback_ptr logger);
+_has_logger_recursive(struct _catagory* cq, _callback_ptr logger);
 
-_callback_ptr
-find_logger(struct _catagory* cq, const char* loggername);
+struct _logger*
+_find_logger(struct _catagory* cq, const char* loggername);
 
 int
 _catagory_logging(struct _catagory* cata, struct _log_msg* msg);

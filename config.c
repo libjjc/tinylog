@@ -14,71 +14,463 @@
 #include "dict.h"
 
 #define DICT_SET_KV(d,k,v) dtset(d,k,v);
+/*****************************************************************************/
+struct _configure_contex {
+    struct _catagory* ctg;
+    struct _logger* logger;
+    struct _layout* layout;
+    int line;
+};
+typedef struct _configure_contex* _cfg_contex_t;
+
+typedef int(*_configure_callback)(dict_t, _cfg_contex_t, ls_t, ls_t);
+
+//root.newcatagory = priority;
+//root.defined_catagory.newcatagory = priority;
+int _root_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    if (!left || !right || !lslen(left) || !lslen(right)){
+        return -1;
+    }
+    dt_entity_t entity = dtfind(d, left);
+    if (entity){
+        contex->ctg = contex->ctg ? contex->ctg : root();
+        return ((_configure_callback)(entity->val.ptv))(d, contex, left, right);
+    }
+    int index = lsfind(left, ".", 0);
+    if (-1 == index){
+        contex->ctg = _create_catagory(contex->ctg, _get_priority(right), left);
+        return contex->ctg ? 0 : -1;
+    }
+    ls_t word = lssubls(left, 0, index);
+    
+    if (!(contex->ctg = _find_catagory(root(), word))){
+        contex->ctg = _create_catagory(contex->ctg?contex->ctg:root(), _get_priority(right), word);
+    }
+    word = lscpy(word, left + index + 1);
+    if (_root_configure(d, contex, word, right)){
+        lsfree(word);
+        return -1;
+    }
+   
+    lsfree(word);
+    return 0;
+}
+
+//catagory.defined_catagory.property = value;
+int
+_catagory_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    if (!left || !right || !lslen(left) || !lslen(right)){
+        return -1;
+    }
+    int index = lsfind(left, ".", 0);
+    if (-1 == index){
+        dt_entity_t entity = dtfind(d, left);
+        if (!entity) {
+            return -1;
+        }
+        return ((_configure_callback)(entity->val.ptv))(d, contex, left, right);
+    }
+    ls_t word = lscreate(left, index);
+    struct _catagory* c = _find_catagory(contex->ctg, word);
+    if (c){
+        contex->ctg = c;
+        word = lscpy(word, left + index + 1);
+        if (_catagory_configure(d, contex, word, right)){
+            lsfree(word);
+            return -1;
+        }
+        lsfree(word);
+        return 0;
+    }
+    lsfree(word);
+    return -1;
+}
+
+//logger.defined_logger.property = value;
+int
+_logger_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    if (!left || !right || !lslen(left) || !lslen(right)){
+        return -1;
+    }
+    if (contex->logger){
+        dt_entity_t entity = dtfind(d, left);
+        if (!entity) {
+            return -1;
+        }
+        return ((_configure_callback)(entity->val.ptv))(d, contex, left, right);
+    }
+    int index = lsfind(left, ".", 0);
+    ls_t word = lscreate(left, index);
+    if (-1 != index){
+        _logger_t logger = _find_logger(root(), word);
+        if (logger){
+            contex->logger = logger;
+            word = lscpy(word, left + index + 1);
+            if (_logger_configure(d, contex, word, right)){
+                lsfree(word);
+                return -1;
+            }
+        }
+    }
+    lsfree(word);
+    return 0;
+}
+
+//layout.defined_logger.property = value;
+int
+_layout_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    if (!left || !right || !lslen(left) || !lslen(right)){
+        return -1;
+    }
+    if (contex->logger){
+        dt_entity_t entity = dtfind(d, left);
+        if (!entity) {
+            return -1;
+        }
+        return ((_configure_callback)(entity->val.ptv))(d, contex, left, right);
+    }
+    int index = lsfind(left, ".", 0);
+    ls_t word = lscreate(left, index);
+    if (-1 != index){
+        _logger_t logger = _find_logger(root(), word);
+        if (logger&&logger->layout){
+            contex->logger = logger;
+            word = lscpy(word, left + index + 1);
+            if (_layout_configure(d, contex, word, right)){
+                lsfree(word);
+                return -1;
+            }
+        }
+    }
+    lsfree(word);
+    return 0;
+}
+
+/**
+ *  root.priority = DEBUG;
+ *  catagory.A1.priority = DEBUG;
+ */
+int
+_ctg_priority_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    if (contex->ctg){
+        contex->ctg->priority = _get_priority(right);
+        return 0;
+    }
+    return -1;
+}
+
+/**
+ * catagory.A1.logger = name,type;
+ * root.logger = name,type;
+ */
+int
+_ctg_logger_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    int ret = -1;
+    if (contex->ctg){
+        int index = lsfind(right, ",", 0);
+        if (-1 != index){
+            ls_t logger = lssubls(right, 0, index);
+            logger = lstrim(logger);
+            ls_t type = lssubls(right, index + 1, -1);
+            type = lstrim(type);
+            dt_entity_t entity = dtfind(d, type);
+            if (entity){
+                ret = ((_configure_callback)(entity->val.ptv))(d, contex, logger, type);
+            }
+            lsfree(logger);
+            lsfree(type);
+        }
+    }
+    return ret;
+}
+
+/**
+ * catagory.A1.logger = name,filelogger;
+ * root.logger = name,filelogger;
+ */
+int
+_file_logger_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    if (contex->ctg){
+        _logger_t logger = _create_file_logger(left, contex->ctg, "");
+        return logger ? 0 : -1;
+    }
+    return -1;
+}
+
+/**
+ * catagory.A1.logger = name,rollingfilelogger;
+ * root.logger = name,rollingfilelogger;
+ */
+int
+_rfile_logger_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    if (contex->ctg){
+        _logger_t logger = _create_rfile_logger(left, contex->ctg, "");
+        return logger ? 0 : -1;
+    }
+    return -1;
+}
+
+/**
+ * catagory.A1.logger = name,consolelogger;
+ * root.logger = name,consolelogger;
+ */
+int
+_console_logger_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    if (contex->ctg){
+        dt_entity_t e = dtfind(d, right);
+        if (e){
+            _logger_t logger = _create_console_logger(left, contex->ctg, (int)e->val.i64);
+            return logger ? 0 : -1;
+        }
+    }
+    return -1;
+}
+
+/**
+ * logger.A1.layout = basiclayout;
+ * logger.A2.layout = patternlayout;
+ * logger.A3.layout = patternlayout,"pattern"
+ */
+int
+_logger_layout_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    int ret = -1;
+    if (!contex->logger){
+        return ret;
+    }
+    int index = lsfind(right, ",", 0);
+    ls_t str1, str2;
+    if (-1 == index){
+        str1 = lscreate(right, lslen(right));
+        str2 = 0;
+    } else{
+        str1 = lscreate(right, index);
+        str2 = lscreate(right + index + 1, lslen(right) - index - 1);
+    }
+    dt_entity_t e = dtfind(d, str1);
+    if (e){
+        ret = ((_configure_callback)e->val.ptv)(d, contex, str1, str2);
+    }
+    lsfree(str1);
+    lsfree(str2);
+    return ret;
+}
 
 int
-process_word(ls_t word, dict_t d);
+_logger_layout_create_basic(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    int ret = -1;
+    if (right && lslen(right)){
+        return ret;
+    }
+    if (contex->logger){
+        if (_create_base_layout(contex->logger)){
+            ret = 0;
+        }
+    }
+    return ret;
+}
 
 int
-logconfigureline(ls_t line, dict_t d);
+_logger_layout_create_pattern(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    int ret = -1;
+    
+    if (contex->logger){
+        if (right && lslen(right)){
+            if (_create_pattern_layout(contex->logger,right)){
+                ret = 0;
+            }
+        } else{
+            if (_create_pattern_layout(contex->logger, "default pattern")){
+                ret = 0;
+            }
+        }
+    }
+    return ret;
+}
+
+/**
+ * layout.A1.type = filelogger;
+ * layout.A2.type = rollingfilelogger;
+ * layout.A3.type = consolelogger;
+ */
+int
+_logger_impl_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    int ret = -1;
+    dt_entity_t e = dtfind(d, right);
+    if (e&&contex->logger){
+        void*(*callback)(_logger_t) = e->val.ptv;
+        logger_priv_t priv = callback(contex->logger);
+        ret = priv ? 0 : -1;
+    }
+    return ret;
+}
+
+
+/**
+ * logger.A1.logfile = "path";
+ */
+int
+_logger_logfile_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    int ret = -1;
+    //dt_entity_t e = dtfind(d, right);
+    if (*right == '"' && *(right + lslen(right)) == '"'){
+        ls_t file = lscreate(right + 1, lslen(right) - 2);
+        if (contex->logger&&contex->logger->priv){
+            _file_priv_t fpt = 0;
+            switch (contex->logger->type){
+            case FILELOGGER:
+                fpt = contex->logger->priv;
+                break;
+            case ROLLINGFILELOGGER:
+                fpt = &((_rfile_priv_t)contex->logger->priv)->fp;
+                break;
+            default:
+                break;
+            }
+            if (fpt){
+                _set_file_path(fpt, file);
+                ret = 0;
+            }
+        }
+        lsfree(file);
+    }
+    return ret;
+}
+
+/**
+ * logger.A1.maxsize = "path";
+ */
+int
+_logger_logfile_maxsize_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    int ret = -1;
+    dt_entity_t e = dtfind(d, right);
+    if (e&&contex->logger&&contex->logger->priv){
+        _file_priv_t fpt = 0;
+        switch (contex->logger->type){
+        case FILELOGGER:
+            fpt = contex->logger->priv;
+            break;
+        case ROLLINGFILELOGGER:
+            fpt = &((_rfile_priv_t)contex->logger->priv)->fp;
+            break;
+        default:
+            break;
+        }
+        if (fpt){
+            int size = atoi(right);
+            _set_file_maxsize(fpt, size);
+            ret = 0;
+        }
+    }
+    return ret;
+}
+
+/**
+ * logger.A1.maxrolling = N;
+ */
+int
+_logger_rlogfile_max_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    int ret = -1;
+    dt_entity_t e = dtfind(d, right);
+    if (e&&contex->logger&&contex->logger->priv){
+        _rfile_priv_t fpt = 0;
+        switch (contex->logger->type){
+        case ROLLINGFILELOGGER:
+            fpt = contex->logger->priv;
+            break;
+        default:
+            break;
+        }
+        if (fpt){
+            int size = atoi(right);
+            _set_rfile_rmax(fpt, size);
+            ret = 0;
+        }
+    }
+    return ret;
+}
+
+//logger.A1.stream = stdout;
+int
+_logger_console_stream_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    int ret = -1;
+    dt_entity_t e = dtfind(d, right);
+    if (e&&contex->logger&&contex->logger->priv){
+        int stream = 0;
+        if (CONSOLELOGGER == contex->logger->type){
+            dt_entity_t e = dtfind(d, right);
+            if (e){
+                stream = (int)e->val.ptv;
+                ret = 0;
+            }
+        }
+    }
+    return ret;
+}
+/**
+ * layout.A1.pattern = "pattern"
+ */
+int
+_layout_pattern_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
+    int ret = -1;
+    right = lstrim(right);
+    if (*right == '"' && *(right+lslen(right)) == '"'){
+        ls_t pattern = lscreate(right + 1, lslen(right) - 2);
+        if (contex->layout){
+            _set_layout_pattern(contex->layout->priv, pattern);
+            ret = 0;
+        }
+        lsfree(pattern);
+    }
+    return ret;
+}
+
 
 int
-process_root(dict_t d, struct _log_script_tree* tree);
-
-typedef int(*property_configure)(void* owner, int argc, char** argv);
-
-int
-process_catagory(dict_t d, struct _log_script_tree* tree);
-
-int
-process_logger(dict_t d, struct _log_script_tree* tree);
-
-int
-process_layout(dict_t d, struct _log_script_tree* tree);
-
-int
-_property_set_priority(struct _catagory* c, int argc, char** argv);
-
-int
-_property_set_cataname(struct _catagory* c, int argc, char** argv);
-
-int
-_property_set_filelogger(struct _catagory* c, int argc, char** argv);
-
-int
-_property_set_rfilelogger(struct _catagory* c, int argc, char** argv);
-
-int
-_property_set_consolelogger(struct _catagory* c, int argc, char** argv);
-
-int
-_property_set_layout(logger_logging logger, int argc, char** argv);
-
-int
-_property_create_basiclayout(logger_logging logger, int argc, char** argv);
-
-int
-_property_create_patternlayout(logger_logging logger, int argc, char** argv);
-
-int
-get_or_create_catagory(struct _catagory* c, char* name, dict_t d);
-
-int
-add_catagory_child(struct _catagory* c, char* child, dict_t d);
-
-
-int
-get_priority(const ls_t prior){
+_get_priority(const ls_t prior){
     return TLL_NOTSET;
 }
 
-typedef int(*parse)(void*, const char* param,dict_t d);
-struct _configure_node {
-    void* node;
-    parse handle;
-};
+int
+_line_configure(dict_t d,ls_t line,int indexline){
+    int ret = -1;
+    int count = 2;
+    ls_t* parts = malloc(sizeof(ls_t*) * count);
+    parts[0] = lsinit(0, 16);
+    parts[1] = lsinit(0, 16);
+    struct _configure_contex contex;
+    contex.ctg = 0;
+    contex.layout = 0;
+    contex.logger = 0;
+    contex.line = indexline;
+    parts = lssplit(line, "=", parts, &count);
+    if (count == 2){
+        int index = lsfind(parts[0], ".", 0);
+        if (-1 != index){
+            ls_t typeword = lscreate(parts[0], index);
+            typeword = lstrim(typeword);
+            ls_t left = lscreate(parts[0] + index + 1, lslen(parts[0]) - index - 1);
+            left = lstrim(left);
+            ls_t right = lsinitcpyls(parts[1]);
+            right = lstrim(right);
+            dt_entity_t e = dtfind(d, typeword);
+            if (e){
+                ret = ((_configure_callback)e->val.ptv)(d, &contex, left, right);
+            }
+            lsfree(right);
+            lsfree(left);
+            lsfree(typeword);
+        }
+    }
+    for (int i = 0; i < count; i++){
+        lsfree(parts[i]);
+    }
+    free(parts);
+    return ret;
+}
+
 
 int 
-logconfigure(const char* file){
+_tinylog_configure(const char* file){
     if (!file) return -1;
 
     int fd = _open(file, O_RDONLY, O_TEXT | O_SEQUENTIAL);
@@ -100,11 +492,30 @@ logconfigure(const char* file){
     ls_t sentence = lscreate(NULL, 256);
 
     dict_t dict = dtcreate(&oksvstrimpl);
-    DICT_SET_KV(dict, TINYLOG_PROPERTY_PRIORITY, _property_set_priority);
-    DICT_SET_KV(dict, TINYLOG_PROPERTY_FILE_logger, _property_set_filelogger);
-    DICT_SET_KV(dict, TINYLOG_PROPERTY_RFILE_logger, _property_set_rfilelogger);
-    DICT_SET_KV(dict, TINYLOG_PROPERTY_CONSOLE_logger, _property_set_consolelogger);
 
+    DICT_SET_KV(dict, TL_TYPE_ROOT, _root_configure);
+    DICT_SET_KV(dict, TL_TYPE_CATAGORY, _catagory_configure);
+    DICT_SET_KV(dict, TL_TYPE_LOGGER, _logger_configure);
+    DICT_SET_KV(dict, TL_TYPE_LAYOUT, _layout_configure);
+    DICT_SET_KV(dict, TL_ACT_LOGGING, _ctg_logger_configure);
+    DICT_SET_KV(dict, TL_ACT_LAYOUTING, _logger_layout_configure);
+    DICT_SET_KV(dict, TL_PROPERTY_FILELOGGER, _file_logger_configure);
+    DICT_SET_KV(dict, TL_PROPERTY_ROLLINGFILELOGGER, _rfile_logger_configure);
+    DICT_SET_KV(dict, TL_PROPERTY_CONSOLELOGGER, _console_logger_configure);
+    DICT_SET_KV(dict, TL_PROPERTY_BASICLAYOUT, _logger_layout_create_basic);
+    DICT_SET_KV(dict, TL_PROPERTY_PATTERNLAYOUT, _logger_layout_create_pattern);
+    DICT_SET_KV(dict, TL_PROPERTY_PRIORITY, _ctg_priority_configure);
+    DICT_SET_KV(dict, TL_PROPERTY_LOGFILE, _logger_logfile_configure);
+    DICT_SET_KV(dict, TL_PROPERTY_MAXSIZE, _logger_logfile_maxsize_configure);
+    DICT_SET_KV(dict, TL_PROPERTY_MAXROLLING, _logger_rlogfile_max_configure);
+    DICT_SET_KV(dict, TL_PROPERTY_STREAM, _logger_console_stream_configure);
+    DICT_SET_KV(dict, TL_PROPERTY_SOUT, stdout);
+    DICT_SET_KV(dict, TL_PROPERTY_SIN, stdin);
+    DICT_SET_KV(dict, TL_PROPERTY_SERR, stderr);
+    DICT_SET_KV(dict, TL_PROPERTY_PATTERN, _layout_pattern_configure);
+    DICT_SET_KV(dict, TL_PROPERTY_LOGGERIMPL, _logger_impl_configure);
+
+    int indexline = 0;
     const char* p = buffer;
     const char* f = buffer;
     while (*p){
@@ -114,11 +525,12 @@ logconfigure(const char* file){
             f = p;
             f++;
 
-            if (logconfigureline(sentence,dict)){
+            if (_line_configure(dict,sentence,indexline)){
                 lsfree(sentence);
                 return -1;
             }
             lsclear(sentence);
+            indexline++;
         }
 
         p++;
@@ -128,207 +540,3 @@ logconfigure(const char* file){
 
     return ret;
 }
-
-int 
-process_word(ls_t word,dict_t d){
-    dt_entity_t e = dtfind(d, word);
-    if (!e) return -2;
-    struct _configure_node* node = e->ptv;
-    if (node->handle){
-        if (node->handle(node->node, word, d)) return -1;
-    }
-    return 0;
-}
-
-int
-logconfigureline(ls_t line,dict_t d){
-    if (!line) return -1;
-    struct _log_script_tree tree;
-    int size = 2;
-    ls_t* lstree = (ls_t*)malloc(sizeof(ls_t*)*size);
-    lstree = lssplit(line, "=", lstree, &size);
-    if (2 != size) return -2;
-    tree._left.count = tree._right.count = 4;
-
-    tree._left.words = lssplit(lstree[0], ". \r\n", NULL, &tree._left.count);
-    tree._right.words = lssplit(lstree[1], ", \r\n", NULL, &tree._right.count);
-    int ret = 0;
-    if (0 == strcmp(TINYLOG_TYPE_ROOT, tree._left.words[0])){
-        ret = process_root(d,&tree);
-    } else if (0 == strcmp(TINYLOG_TYPE_CATAGORY, tree._left.words[0])){
-        ret = process_catagory(d, &tree);
-    } else if (0 == strcmp(TINYLOG_TYPE_logger, tree._left.words[0])){
-        ret = process_logger(d, &tree);
-    } else{
-        ret = -1;
-    }
-    for (int i = 0; i < tree._left.count; i++){
-        lsfree(tree._left.words[i]);
-    }
-    for (int i = 0; i < tree._right.count; i++){
-        lsfree(tree._right.words[i]);
-    }
-    free(tree._left.words);
-    free(tree._right.words);
-    return ret;
-}
-
-int
-process_root(dict_t d, struct _log_script_tree* tree){
-    struct _catagory* c = root();
-    if (tree->_left.count == 1){
-        _property_set_cataname(c, tree->_right.count, &tree->_right.words[0]);
-    } else{
-        for (int i = 1; i < tree->_left.count; i++){
-            c = get_create_catagory(c, tree->_left.words[i]);
-            _property_set_priority(c, tree->_right.count, &tree->_right.words[0]);
-        }
-    }
-    return 0;
-}
-
-typedef int(*property_configure)(void* owner, int argc, char** argv);
-
-int
-process_catagory(dict_t d, struct _log_script_tree* tree){
-    struct _catagory* c = _find_catagory(root(), tree->_left.words[1]);
-    
-    dt_entity_t e = dtfind(d, tree->_left.words[2]);
-    if (!e) return -1;
-    if (((property_configure)e->val.ptv)(c, tree->_right.count, &tree->_right.words[0])){
-        return -1;
-    }
-    return 0;
-}
-
-int
-process_logger(dict_t d, struct _log_script_tree* tree){
-    dt_entity_t e = dtfind(d, tree->_left.words[1]);
-    if (!e) return -1;
-    logger_logging logger = (logger_logging)e->ptv;
-    e = dtfind(d, tree->_left.words[2]);
-    if (!e)return -1;
-    if (((property_configure)e->ptv)(logger, tree->_right.count, &tree->_right.words[0])){
-        return -1;
-    }
-    return 0;
-}
-
-int
-process_layout(dict_t d, struct _log_script_tree* tree){
-    dt_entity_t e = dtfind(d, tree->_left.words[1]);
-    if (!e) return -1;
-    logger_logging logger = (logger_logging)e->ptv;
-    e = dtfind(d, tree->_left.words[2]);
-    if (!e)return -1;
-    if (((property_configure)e->ptv)(logger,tree->_right.count , &tree->_right.words[0])){
-        return -1;
-    }
-    return 0;
-}
-
-int
-_property_set_priority(struct _catagory* c, int argc , char** argv){
-    c->priority = atoi(argv[0]);
-    return 0;
-}
-
-int 
-_property_set_cataname(struct _catagory* c, int argc , char** argv){
-    if (c->name){
-        c->name = lscpy(c->name, argv[0]);
-    } else{
-        c->name = lscreate(argv[0], strlen(argv[0]));
-    }
-    return c->name ? 0 : -1;
-}
-
-int
-_property_set_filelogger(struct _catagory* c, int argc, char** argv){
-    if (argc < 2) return -2;
-    logger_logging logger = 0;
-    switch (argc){
-    case 2:
-        logger = _create_file_logger(argv[0], c, argv[1], DEFAULT_LOGFILE_MAXSIZE);
-        break;
-    case 3:
-        logger = _create_file_logger(argv[0], c, argv[1], atoi(argv[2]));
-        break;
-    default:
-        return -1;
-    }
-    return 0;
-}
-
-int
-_property_set_rfilelogger(struct _catagory* c, int argc, char** argv){
-    if (argc < 2) return -2;
-    logger_logging logger = 0;
-    switch (argc){
-    case 2:
-        logger = _create_rfile_logger(argv[0], c, argv[1], DEFAULT_LOGFILE_RSIZE,DEFAULT_LOGFILE_RCOUNT);
-        break;
-    case 3:
-        logger = _create_rfile_logger(argv[0], c, argv[1], atoi(argv[2]),DEFAULT_LOGFILE_RCOUNT);
-        break;
-    case 4:
-        logger = _create_rfile_logger(argv[0], c, argv[1], atoi(argv[2]), atoi(argv[3]));
-    default:
-        return -1;
-    }
-    return 0;
-}
-
-int
-_property_set_consolelogger(struct _catagory* c, int argc, char** argv){
-    if (1 != argc) return -1;
-    //logger_logging logger = _create_console_logger(argv[0], c);
-    //return logger ? 0 : -1;
-    return 0;
-}
-
-int
-_property_set_layout(struct _logger* logger, int argc, char** argv){
-    if (argc < 1)return -1;
-    if (0 == strcmp(argv[0], TINYLOG_TYPE_LAYOUT_BASIC)){
-        return _property_create_basiclayout(logger, argc, argv);
-    } else if (0 == strcmp(argv[0], TINYLOG_TYPE_LAYOUT_PATTERN)){
-        return _property_create_patternlayout(logger, argc, argv);
-    }
-    return -1;
-}
-
-int
-_property_create_basiclayout(struct _logger* logger, int argc, char** argv){
-    if (!create_base_layout(logger)){
-        return -1;
-    }
-    return 0;
-}
-
-int
-_property_create_patternlayout(struct _logger* logger, int argc, char** argv){
-    if (argc != 2) return -2;
-    if (!create_pattern_layout(logger,argv[1])){
-        return -1;
-    }
-    return 0;
-}
-
-int
-get_or_create_catagory(struct _catagory* c, char* name, dict_t d){
-    if (!dtfind(d, name)){
-        return add_catagory_child(c, name, d);
-    }
-    return 0;
-}
-
-int
-add_catagory_child(struct _catagory* c, char* child,dict_t d){
-    if (dtfind(d, child)){ return -1; }
-    struct _catagory* cata = createCatagory(c, TLL_NOTSET, child);
-    if (!cata) return -1;
-    dtset(d, child, 0);
-    return 0;
-}
-
