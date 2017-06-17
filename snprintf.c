@@ -286,10 +286,7 @@
 
 #define PORTABLE_SNPRINTF_VERSION_MAJOR 2
 #define PORTABLE_SNPRINTF_VERSION_MINOR 2
-#if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable:4996)
-#endif
+
 #if defined(NEED_ASPRINTF) || defined(NEED_ASNPRINTF) || defined(NEED_VASPRINTF) || defined(NEED_VASNPRINTF)
 # if defined(NEED_SNPRINTF_ONLY)
 # undef NEED_SNPRINTF_ONLY
@@ -417,7 +414,7 @@ static char credits[] = "\n\
 @(#)snprintf.c, v2.2: Copyright 1999, Mark Martinec. Frontier Artistic License applies.\n\
 @(#)snprintf.c, v2.2: http://www.ijs.si/software/snprintf/\n";
 
-#if defined(NEED_ASPRINTF)
+//#if defined(NEED_ASPRINTF)
 int asprintf(char **ptr, const char *fmt, /*args*/ ...) {
   va_list ap;
   size_t str_m;
@@ -439,9 +436,9 @@ int asprintf(char **ptr, const char *fmt, /*args*/ ...) {
   }
   return str_l;
 }
-#endif
+//#endif
 
-#if defined(NEED_VASPRINTF)
+//#if defined(NEED_VASPRINTF)
 int vasprintf(char **ptr, const char *fmt, va_list ap) {
   size_t str_m;
   int str_l;
@@ -461,9 +458,9 @@ int vasprintf(char **ptr, const char *fmt, va_list ap) {
   }
   return str_l;
 }
-#endif
+//#endif
 
-#if defined(NEED_ASNPRINTF)
+//#if defined(NEED_ASNPRINTF)
 int asnprintf (char **ptr, size_t str_m, const char *fmt, /*args*/ ...) {
   va_list ap;
   int str_l;
@@ -489,9 +486,9 @@ int asnprintf (char **ptr, size_t str_m, const char *fmt, /*args*/ ...) {
   }
   return str_l;
 }
-#endif
+//#endif
 
-#if defined(NEED_VASNPRINTF)
+//#if defined(NEED_VASNPRINTF)
 int vasnprintf (char **ptr, size_t str_m, const char *fmt, va_list ap) {
   int str_l;
 
@@ -515,7 +512,7 @@ int vasnprintf (char **ptr, size_t str_m, const char *fmt, va_list ap) {
   }
   return str_l;
 }
-#endif
+//#endif
 
 /*
  * If the system does have snprintf and the portable routine is not
@@ -708,8 +705,8 @@ int portable_vsnprintf(char *str, size_t str_m, const char *fmt, va_list ap) {
           else if (precision == 0) str_arg_l = 0;
           else {
        /* memchr on HP does not like n > 2^31  !!! */
-            const char *q = (const char*)(memchr(str_arg, '\0',
-                             precision <= 0x7fffffff ? precision : 0x7fffffff));
+            const char *q = memchr(str_arg, '\0',
+                             precision <= 0x7fffffff ? precision : 0x7fffffff);
             str_arg_l = !q ? precision : (q-str_arg);
           }
           break;
@@ -917,7 +914,7 @@ int portable_vsnprintf(char *str, size_t str_m, const char *fmt, va_list ap) {
         }
      /* zero padding to specified minimal field width? */
         if (!justify_left && zero_padding) {
-          size_t n = min_field_width - (str_arg_l+number_of_zeros_to_pad);
+          int n = min_field_width - (str_arg_l+number_of_zeros_to_pad);
           if (n > 0) number_of_zeros_to_pad += n;
         }
         break;
@@ -945,10 +942,10 @@ int portable_vsnprintf(char *str, size_t str_m, const char *fmt, va_list ap) {
    /* insert padding to the left as requested by min_field_width;
       this does not include the zero padding in case of numerical conversions*/
       if (!justify_left) {                /* left padding with blank or zero */
-        size_t n = min_field_width - (str_arg_l+number_of_zeros_to_pad);
+        int n = min_field_width - (str_arg_l+number_of_zeros_to_pad);
         if (n > 0) {
           if (str_l < str_m) {
-            size_t avail = str_m-str_l;
+            int avail = str_m-str_l;
             fast_memset(str+str_l, (zero_padding?'0':' '), (n>avail?avail:n));
           }
           str_l += n;
@@ -962,10 +959,10 @@ int portable_vsnprintf(char *str, size_t str_m, const char *fmt, va_list ap) {
         zero_padding_insertion_ind = 0;
       } else {
      /* insert first part of numerics (sign or '0x') before zero padding */
-        size_t n = zero_padding_insertion_ind;
+        int n = zero_padding_insertion_ind;
         if (n > 0) {
           if (str_l < str_m) {
-            size_t avail = str_m-str_l;
+            int avail = str_m-str_l;
             fast_memcpy(str+str_l, str_arg, (n>avail?avail:n));
           }
           str_l += n;
@@ -974,7 +971,7 @@ int portable_vsnprintf(char *str, size_t str_m, const char *fmt, va_list ap) {
         n = number_of_zeros_to_pad;
         if (n > 0) {
           if (str_l < str_m) {
-            size_t avail = str_m-str_l;
+            int avail = str_m-str_l;
             fast_memset(str+str_l, '0', (n>avail?avail:n));
           }
           str_l += n;
@@ -982,10 +979,10 @@ int portable_vsnprintf(char *str, size_t str_m, const char *fmt, va_list ap) {
       }
    /* insert formatted string
     * (or as-is conversion specifier for unknown conversions) */
-      { size_t n = str_arg_l - zero_padding_insertion_ind;
+      { int n = str_arg_l - zero_padding_insertion_ind;
         if (n > 0) {
           if (str_l < str_m) {
-            size_t avail = str_m-str_l;
+            int avail = str_m-str_l;
             fast_memcpy(str+str_l, str_arg+zero_padding_insertion_ind,
                         (n>avail?avail:n));
           }
@@ -994,10 +991,10 @@ int portable_vsnprintf(char *str, size_t str_m, const char *fmt, va_list ap) {
       }
    /* insert right padding */
       if (justify_left) {          /* right blank padding to the field width */
-        size_t n = min_field_width - (str_arg_l+number_of_zeros_to_pad);
+        int n = min_field_width - (str_arg_l+number_of_zeros_to_pad);
         if (n > 0) {
           if (str_l < str_m) {
-            size_t avail = str_m-str_l;
+            int avail = str_m-str_l;
             fast_memset(str+str_l, ' ', (n>avail?avail:n));
           }
           str_l += n;
@@ -1025,7 +1022,4 @@ int portable_vsnprintf(char *str, size_t str_m, const char *fmt, va_list ap) {
    */
   return (int) str_l;
 }
-#if defined(_MSC_VER)
-#pragma warning(pop)
-#endif
 #endif

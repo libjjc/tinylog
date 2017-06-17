@@ -7,29 +7,49 @@
 struct _catagory gl_logger_root;
 
 void
-tlinit(){
+_tlinit(){
+    gl_logger_root.name = lscreate("root", 4);
+}
+
+int
+_tl_local_reopen_(struct _catagory* catagory){
+    int success = 0;
+    if (!catagory) return success;
+    for (int i = 0; i < catagory->countLoggers; i++){
+        _logger_t logger = catagory->loggers[i];
+        success |= _reopen_logger(logger);
+    }
+    for (int i = 0; i < catagory->countChildren; i++){
+        success |= _tl_local_reopen_(catagory->children[i]);
+    }
+    return success;
 }
 
 void
-tlshutdown(){
+_tlopen(){
+    int result = _tl_local_reopen_(&gl_logger_root);
+}
+
+void
+_tlshutdown(){
 }
 
 struct _catagory *
-root()
+_root()
 {
     return &gl_logger_root;
 }
 
 int
-tlloadcfg(const char* config) {
+_tlloadcfg(const char* config) {
     return 0;
 }
 
 void
-tllog(int priority, const char* _msg, ...){
+_tllog(int priority, const char* _msg, ...){
 
-    struct _catagory* _root = root();
-    if (!_root) return;
+    struct _catagory* cgroot = _root();
+    if (!cgroot) return;
     struct _log_msg msg;
     if (priority <= TLL_EMERG){
         msg.prior = TLL_EMERG;
@@ -63,55 +83,55 @@ tllog(int priority, const char* _msg, ...){
     msg.msg = lscreate(_msg, strlen(_msg));
     msg.ts.sec = 0;
 
-    _catagory_logging(_root, &msg);
+    _catagory_logging(cgroot, &msg);
 
-    lsfree(msg.cagy);
+    lsfree(msg.catagory);
     lsfree(msg.msg);
     lsfree(msg.s_prior);
 }
 
 void
-tlemerg(const char * msg, ...){
-    tllog(TLL_EMERG, msg);
+_tlemerg(const char * msg, ...){
+    _tllog(TLL_EMERG, msg);
 }
 
 void
-tlfatal(const char * msg, ...){
-    tllog(TLL_FATAL, msg);
+_tlfatal(const char * msg, ...){
+    _tllog(TLL_FATAL, msg);
 }
 
 void
-tlalert(const char * msg, ...){
-    tllog(TLL_ALERT, msg);
+_tlalert(const char * msg, ...){
+    _tllog(TLL_ALERT, msg);
 }
 
 void
-tlerror(const char* msg, ...){
-    tllog(TLL_ERROR, msg);
+_tlerror(const char* msg, ...){
+    _tllog(TLL_ERROR, msg);
 }
 
 void
-tlwarn(const char * msg, ...){
-    tllog(TLL_WARN, msg);
+_tlwarn(const char * msg, ...){
+    _tllog(TLL_WARN, msg);
 }
 
 void
 tlnotice(const char * msg, ...){
-    tllog(TLL_NOTICE, msg);
+    _tllog(TLL_NOTICE, msg);
 }
 
 void
-tlinfo(const char * msg, ...){
-    tllog(TLL_INFO, msg);
+_tlinfo(const char * msg, ...){
+    _tllog(TLL_INFO, msg);
 }
 
 void
-tldebug(const char * msg, ...){
-    tllog(TLL_DEBUG, msg);
+_tldebug(const char * msg, ...){
+    _tllog(TLL_DEBUG, msg);
 }
 
 void
-tlnotset(const char * msg, ...){
-    tllog(TLL_NOTSET, msg);
+_tlnotset(const char * msg, ...){
+    _tllog(TLL_NOTSET, msg);
 }
 

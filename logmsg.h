@@ -11,7 +11,7 @@
 struct _log_msg {
     int prior;
     ls_t s_prior;
-    ls_t cagy;
+    ls_t catagory;
     ls_t msg;
     struct _log_ts ts;
 };

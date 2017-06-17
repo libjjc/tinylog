@@ -25,6 +25,17 @@ typedef struct _configure_contex* _cfg_contex_t;
 
 typedef int(*_configure_callback)(dict_t, _cfg_contex_t, ls_t, ls_t);
 
+_cfgerr_stack_t
+_create_cfgerr_stack(int stackdepth){
+    _cfgerr_stack_t stack = malloc(sizeof(struct _cfgerr_stack)*stackdepth);
+    if (!stack){
+        return 0;
+    }
+    stack->depth = stackdepth;
+    stack->index = 0;
+    stack->size = 0;
+    return stack;
+}
 //root.newcatagory = priority;
 //root.defined_catagory.newcatagory = priority;
 int _root_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
@@ -33,7 +44,7 @@ int _root_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     }
     dt_entity_t entity = dtfind(d, left);
     if (entity){
-        contex->ctg = contex->ctg ? contex->ctg : root();
+        contex->ctg = contex->ctg ? contex->ctg : _root();
         return ((_configure_callback)(entity->val.ptv))(d, contex, left, right);
     }
     int index = lsfind(left, ".", 0);
@@ -42,10 +53,11 @@ int _root_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
         return contex->ctg ? 0 : -1;
     }
     ls_t word = lssubls(left, 0, index);
-    
-    if (!(contex->ctg = _find_catagory(root(), word))){
-        contex->ctg = _create_catagory(contex->ctg?contex->ctg:root(), _get_priority(right), word);
+    struct _catagory* catagory = NULL;
+    if (!(catagory= _find_catagory(_root(), word))){
+        catagory = _create_catagory(contex->ctg?contex->ctg:_root(), _get_priority(right), word);
     }
+    contex->ctg = catagory;
     word = lscpy(word, left + index + 1);
     if (_root_configure(d, contex, word, right)){
         lsfree(word);
@@ -102,7 +114,7 @@ _logger_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     int index = lsfind(left, ".", 0);
     ls_t word = lscreate(left, index);
     if (-1 != index){
-        _logger_t logger = _find_logger(root(), word);
+        _logger_t logger = _find_logger(_root(), word);
         if (logger){
             contex->logger = logger;
             word = lscpy(word, left + index + 1);
@@ -132,9 +144,10 @@ _layout_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     int index = lsfind(left, ".", 0);
     ls_t word = lscreate(left, index);
     if (-1 != index){
-        _logger_t logger = _find_logger(root(), word);
+        _logger_t logger = _find_logger(_root(), word);
         if (logger&&logger->layout){
             contex->logger = logger;
+            contex->layout = logger->layout;
             word = lscpy(word, left + index + 1);
             if (_layout_configure(d, contex, word, right)){
                 lsfree(word);
@@ -217,11 +230,9 @@ _rfile_logger_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
 int
 _console_logger_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     if (contex->ctg){
-        dt_entity_t e = dtfind(d, right);
-        if (e){
-            _logger_t logger = _create_console_logger(left, contex->ctg, (int)e->val.i64);
-            return logger ? 0 : -1;
-        }
+        _logger_t logger = _create_console_logger(left, contex->ctg,0);
+        
+        return logger ? 0 : -1;
     }
     return -1;
 }
@@ -312,7 +323,7 @@ int
 _logger_logfile_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     int ret = -1;
     //dt_entity_t e = dtfind(d, right);
-    if (*right == '"' && *(right + lslen(right)) == '"'){
+    if (*right == '"' && *(right + lslen(right)-1) == '"'){
         ls_t file = lscreate(right + 1, lslen(right) - 2);
         if (contex->logger&&contex->logger->priv){
             _file_priv_t fpt = 0;
@@ -342,8 +353,7 @@ _logger_logfile_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right)
 int
 _logger_logfile_maxsize_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     int ret = -1;
-    dt_entity_t e = dtfind(d, right);
-    if (e&&contex->logger&&contex->logger->priv){
+    if (contex->logger&&contex->logger->priv){
         _file_priv_t fpt = 0;
         switch (contex->logger->type){
         case FILELOGGER:
@@ -370,8 +380,7 @@ _logger_logfile_maxsize_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_
 int
 _logger_rlogfile_max_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     int ret = -1;
-    dt_entity_t e = dtfind(d, right);
-    if (e&&contex->logger&&contex->logger->priv){
+    if (contex->logger&&contex->logger->priv){
         _rfile_priv_t fpt = 0;
         switch (contex->logger->type){
         case ROLLINGFILELOGGER:
@@ -394,15 +403,13 @@ int
 _logger_console_stream_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     int ret = -1;
     dt_entity_t e = dtfind(d, right);
+    _console_priv_t priv = 0;
     if (e&&contex->logger&&contex->logger->priv){
-        int stream = 0;
         if (CONSOLELOGGER == contex->logger->type){
-            dt_entity_t e = dtfind(d, right);
-            if (e){
-                stream = (int)e->val.ptv;
-                ret = 0;
-            }
+            priv = contex->logger->priv;
+            ret = 0;
         }
+        priv->stream = e->val.ptv;
     }
     return ret;
 }
@@ -413,7 +420,7 @@ int
 _layout_pattern_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     int ret = -1;
     right = lstrim(right);
-    if (*right == '"' && *(right+lslen(right)) == '"'){
+    if (*right == '"' && *(right+lslen(right)-1) == '"'){
         ls_t pattern = lscreate(right + 1, lslen(right) - 2);
         if (contex->layout){
             _set_layout_pattern(contex->layout->priv, pattern);

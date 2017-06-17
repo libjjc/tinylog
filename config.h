@@ -2,16 +2,29 @@
 #define TINYLOG_CONFIG_HH
 #include "logstr.h"
 
-
-
-struct _log_script_tree {
-    struct _log_script_leaf {
-        ls_t* words;
-        int count;
-    };
-    struct _log_script_leaf _left;
-    struct _log_script_leaf _right;
+struct _cfgerr_stack_node {
+    ls_t _error;
+    int _id;
+    ls_t _file;
+    int line;
 };
+
+typedef struct _cfgerr_stack_node* _cfgerr_stack_node_t;
+
+struct _cfgerr_stack {
+    _cfgerr_stack_node_t _stack;
+    int size;
+    int depth;
+    int index;
+};
+typedef struct _cfgerr_stack* _cfgerr_stack_t;
+
+_cfgerr_stack_t
+_create_cfgerr_stack(int stackdepth);
+
+void
+_free_cfgerr_stack();
+
 
 #define TINYLOG_PREFIX "tinylog"
 
@@ -44,6 +57,8 @@ _get_priority(const ls_t prior);
 
 int
 _tinylog_configure(const char* configfile);
+
+
 
 #endif//TINYLOG_CONFIG_HH
 

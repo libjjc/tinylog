@@ -3,6 +3,7 @@
 
 #include <time.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include "logstr.h"
 #include "layout.h"
 #include "logdef.h"
@@ -34,7 +35,7 @@ struct _dfile_priv {
 };
 
 struct _console_priv {
-    int stream;
+    FILE* stream;
 };
 
 typedef struct _file_priv* _file_priv_t;
@@ -98,8 +99,6 @@ _set_logger_layout(_logger_t logger, _layout_t layout);
 
 
 
-void
-_set_logger_priv(_logger_t logger, logger_priv_t priv);
 
 logger_priv_t
 _get_logger_priv(_logger_t logger);
@@ -165,9 +164,9 @@ void
 _free_console_priv(logger_priv_t priv);
 
 void
-_set_console_stream(_console_priv_t priv, int stream);
+_set_console_stream(_console_priv_t priv, FILE* stream);
 
-int
+FILE*
 _get_console_stream(_console_priv_t priv);
 
 int
@@ -189,6 +188,6 @@ _create_rfile_logger( const char* name,logger_owner_type owner,
 
 _logger_t
 _create_console_logger(const char* name,logger_owner_type owner,
-                       int stream);
+                       FILE* stream);
 
 #endif//LOG_loggerHH

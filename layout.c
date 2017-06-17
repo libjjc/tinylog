@@ -4,11 +4,11 @@
 #include <time.h>
 #include <sys/timeb.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "layout.h"
 #include "logger.h"
 #include "logdef.h"
 #include "logmsg.h"
-
 #define _layout_addr(lyt)\
     ((struct _layout*)(&(lyt) - (int)(&((struct _layout*)(NULL))->layout)))
 
@@ -48,6 +48,7 @@ _create_pattern_layout_impl(_layout_t layout){
         layout->priv = priv;
         layout->privfree = _free_pattern_layout_impl;
         layout->layout = _pattern_layout;
+        priv->pattern = 0;
     }
     return priv;
 }
@@ -96,6 +97,9 @@ _create_base_layout(struct _logger* logger){
     _layout_t layout = _create_layout(logger);
     if (layout){
         _create_basic_layout_impl(layout);
+    }
+    if (logger){
+        logger->layout = layout;
     }
     return layout;
 }
@@ -182,7 +186,7 @@ _pattern_layout(_layout_t layout, struct _log_msg* msg){
         if ('%' == *p && *p++){
             switch (*p){
             case 'c':
-                message = lscatls(message, msg->cagy);
+                message = lscatls(message, msg->catagory);
                 break;
             case 'd':
                 p++;
@@ -224,6 +228,8 @@ _pattern_layout(_layout_t layout, struct _log_msg* msg){
 
 ls_t
 _basic_layout(struct _layout* layout,struct _log_msg* msg){
-    ls_t message = lsinitfmt("%ld [%s]: %s \n", msg->ts, msg->s_prior, msg->msg);
+
+    ls_t message = lsinitfmt("[%-6s] @%s \\> %s\n", msg->s_prior, msg->catagory, msg->msg);
+    
     return message;
 }

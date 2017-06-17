@@ -25,10 +25,16 @@
 _logger_t
 _create_logger(){
     struct _logger* logger =
-        (struct _logger*)malloc(sizeof(struct _logger*));
+        (struct _logger*)malloc(sizeof(struct _logger));
     if (!logger) return NULL;
     logger->logging = 0;
     logger->name = 0;
+    logger->priv = 0;
+    logger->privfree = 0;
+    logger->owner = 0;
+    logger->reopen = 0;
+    logger->type = UNKOWNTYPE;
+    _create_base_layout(logger);
     return logger;
 }
 
@@ -44,8 +50,6 @@ _free_logger(_logger_t logger){
     if (logger->priv){
         if (logger->privfree){
             logger->privfree(logger->priv);
-        } else{
-            free(logger->priv);
         }
     }
     free(logger);
@@ -58,6 +62,8 @@ _reopen_logger(_logger_t _logger){
     }
     return -1;
 }
+
+
 
 const ls_t 
 _get_logger_name(_logger_t logger){
@@ -86,10 +92,7 @@ _set_logger_owner(_logger_t logger,logger_owner_type owner){
 
 
 
-void
-_set_logger_priv(_logger_t logger, logger_priv_t priv){
-    logger->priv = priv;
-}
+
 
 logger_priv_t
 _get_logger_priv(_logger_t logger){
@@ -108,10 +111,14 @@ _create_file_priv(_logger_t logger){
     fp->maxsize = DEFAULT_LOGFILE_MAXSIZE;
     fp->logfile = 0;
     if (logger){
+        if (logger->priv && logger->privfree){
+            logger->privfree(logger->priv);
+        }
         logger->priv = fp;
         logger->privfree = _free_file_priv;
         logger->reopen = _file_logger_reopen;
         logger->logging = _file_logger_logging;
+        logger->type = FILELOGGER;
     }
     return fp;
 }
@@ -195,10 +202,14 @@ _create_rfile_priv(_logger_t logger){
     priv->fp.maxsize = DEFAULT_LOGFILE_RSIZE;
     priv->extw = (long)log10(priv->rmax) + 1;
     if (logger){
+        if (logger->priv && logger->privfree){
+            logger->privfree(logger->priv);
+        }
         logger->priv = priv;
         logger->privfree = _free_rfile_priv;
         logger->reopen = _rfile_logger_reopen;
         logger->logging = _rfile_logger_logging;
+        logger->type = ROLLINGFILELOGGER;
     }
     return priv;
 }
@@ -232,43 +243,60 @@ _rfile_logger_reopen(_logger_t logger){
     priv->rmax = priv->rmax <= 0? 1: priv->rmax;
     priv->extw = (long)log10(priv->rmax) + 1;
     ls_t back_path = lsinitcpyls(priv->fp.logfile);
+    //get rolling index
     for (; priv->rindex < priv->rmax; priv->rindex++){
-        back_path = lscatfmt(back_path, ".%.*s",priv->extw,priv->rindex+1);
-        if (!_access(back_path, 0)){
+        ls_t temp = lsinitfmt( "%s.%.*d",back_path,priv->extw,priv->rindex+1);
+        if (_access(temp, 0)){
+            lsfree(temp);
             break;
         }
+        lsfree(temp);
     }
     lsfree(back_path);
     int fd = _open(priv->fp.logfile, priv->fp.flag, priv->fp.mode);
     
     if (!fd) return -1;
-
+    priv->fp.fd = fd;
+    priv->fp.size = _filelength(fd);
     return 0;
 }
 
 int 
 _rolling_over(_rfile_priv_t logger){
     if (!logger) return -1;
-    ls_t back_path = lsinitfmt(logger->fp.logfile,".%.*d",logger->extw,1);
-    if (logger->rindex + 1 >= logger->rmax){
-        remove(back_path);
-        for (int i = 1; i < logger->rmax; i++){
-            ls_t path_old = lsinitfmt("%s.%.*d", logger->fp.logfile, i + 1);
-            if (!_access(path_old, 0)){
-                ls_t path_new = lsinitfmt("%s.%.*d", logger->fp.logfile, i);
-                rename(path_old, path_new);
-                lsfree(path_old);
-                lsfree(path_new);
-            } else{
-                break;
-            }
-        }
-        rename(logger->fp.logfile, back_path);
-        lsfree(back_path);
-        return 0;
-    }
-    rename(logger->fp.logfile, back_path);
     logger->rindex++;
+    // make sure the smaller index of backup , the nearly logging file;
+    if (logger->rindex > logger->rmax){
+        logger->rindex = logger->rmax;
+        ls_t back_path = lsinitfmt("%s.%.*d", logger->fp.logfile, logger->extw, logger->rmax);
+        int ok = remove(back_path);
+        lsfree(back_path);
+        if (ok) return ok;
+    }
+    for (int i = logger->rindex - 1; i > 0; i--){
+        ls_t oldpath = lsinitfmt("%s.%.*d", logger->fp.logfile, logger->extw, i);
+        ls_t newpath = lsinitfmt("%s.%.*d", logger->fp.logfile, logger->extw, i + 1);
+        if (!_access(newpath,0)){
+            remove(newpath);
+        }
+        int ok = rename(oldpath, newpath);
+        lsfree(oldpath);
+        lsfree(newpath);
+        if (ok) return ok;
+    }
+    //always save the nearest backup file as logfile.1
+    ls_t back_path = lsinitfmt("%s.%.*d",logger->fp.logfile,logger->extw,1);
+    if (!_access(back_path, 0)){
+        if (remove(back_path)){
+            lsfree(back_path);
+            return -1;
+        }
+    }
+
+    if (rename(logger->fp.logfile, back_path)){
+        lsfree(back_path);
+        return -1;
+    }
     lsfree(back_path);
     return 0;
 }
@@ -306,10 +334,14 @@ _console_priv_t
 _create_console_priv(_logger_t logger){
     _console_priv_t priv = malloc(sizeof(struct _console_priv));
     if (logger){
+        if (logger->priv && logger->privfree){
+            logger->privfree(logger->priv);
+        }
         logger->priv = priv;
         logger->privfree = _free_console_priv;
         logger->reopen = _console_logger_reopen;
         logger->logging = _console_logger_logging;
+        logger->type = CONSOLELOGGER;
     }
     return priv;
 }
@@ -320,11 +352,11 @@ _free_console_priv(logger_priv_t priv){
 }
 
 void
-_set_console_stream(_console_priv_t priv, int stream){
+_set_console_stream(_console_priv_t priv, FILE* stream){
     priv->stream = stream;
 }
 
-int
+FILE*
 _get_console_stream(_console_priv_t priv){
     return priv->stream;
 }
@@ -332,6 +364,7 @@ _get_console_stream(_console_priv_t priv){
 int
 _console_logger_reopen(_logger_t logger){
     _console_priv_t priv = (_console_priv_t)logger->priv;
+    
     return priv&& priv->stream ? 0 : -1;
 }
 
@@ -345,7 +378,10 @@ _console_logger_logging(_logger_t logger, struct _log_msg* msg){
         ls = lscreate(msg->msg,lslen(msg->msg));
     }
     if (!ls) return 0;
-    fprintf((FILE*)priv->stream, "%s", ls);
+    if (priv&& priv->stream){
+        fprintf(priv->stream, "%s", ls);
+    }
+    //fprintf((FILE*)priv->stream, "%s", ls);
     lsfree(ls);
     return 0;
 }
@@ -360,12 +396,10 @@ _create_file_logger(const char* name, struct _catagory* owner,
     if (!logger) return NULL;
     _file_priv_t priv = _create_file_priv(logger);
 
+    logger->type = FILELOGGER;
     _set_logger_name(logger, name);
     _set_file_path(priv, logfile);
-    if (owner){
-        _add_logger(owner, logger);
-    }
-    
+
     _create_base_layout(logger);
 
     if (owner) {
@@ -382,6 +416,7 @@ _create_rfile_logger(const char* name, logger_owner_type owner,
     if (!logger) return NULL;
     _rfile_priv_t priv = _create_rfile_priv(logger);
 
+    logger->type = ROLLINGFILELOGGER;
     _set_logger_name(logger, name);
     _set_file_path(&priv->fp, logfile);
     if (owner){
@@ -399,11 +434,11 @@ _create_rfile_logger(const char* name, logger_owner_type owner,
 
 _logger_t
 _create_console_logger(const char* name, logger_owner_type owner,
-                       int stream){
+                       FILE* stream){
     _logger_t logger = _create_logger();
     if (!logger) return NULL;
     _console_priv_t priv = _create_console_priv(logger);
-
+    logger->type = CONSOLELOGGER;
     _set_logger_name(logger, name);
     _set_console_stream(priv,stream);
     

@@ -6,33 +6,12 @@
 #include <ctype.h>
 #include <vadefs.h>
 #include "logstr.h"
-#if defined(_MSC_VER)
-#define VSNPRINTF _vsnprintf
-#if _MSC_VER > 1900
-#define _crt_va_start __crt_va_start_a
-#define _crt_va_end __crt_va_end
-#endif
-#else
-#ifdef TINYLOG_HAVE_SNPRINTF
-#define VSNPRINTF vsnprintf
-#else
-/* use alternative snprintf() from http://www.ijs.si/software/snprintf/ */
-
-#define HAVE_SNPRINTF
-#define PREFER_PORTABLE_SNPRINTF
-#include <stdlib.h>
-#include <stdarg.h>
-#include "snprintf.c"
-
-#define VSNPRINTF portable_vsnprintf
-
-#endif // TINYLOG_HAVE_SNPRINTF
-#endif // _MSC_VER
+#include "snprintf.h"
 
 #ifdef _LSP
 #undef _LSP
 #else
-#define _LSP(s) ((struct _log_str*)(s-sizeof(struct _log_str)))
+#define _LSP(s) ((struct _log_str*)(&s[0]-sizeof(struct _log_str)))
 #endif//_LSP
 
 ls_t 
@@ -73,12 +52,25 @@ lsinitcpyls(const ls_t ls){
 
 ls_t
 lscpyfmt(ls_t ls,char* fmt, ...){
-    int size = 0;
+    int size = 512;
+    int len = 0;
     va_list args;
-	_crt_va_start(args, fmt);
-    char* buffer = _ls_va_buffer(&size, fmt, args);
+    char* buffer = malloc(size);
+    _crt_va_start(args, fmt);
+    len = vsnprintf(buffer,size, fmt, args);
+    _crt_va_end(args);
+    if (len > size){
+        while (size < len) size *= 2;
+        buffer = realloc(buffer, size);
+        _crt_va_start(args, fmt);
+        vsnprintf(buffer, size, fmt, args);
+        _crt_va_end(args);
+    }
+    size = len;
     if (!buffer) return ls;
-    return lscatlen(ls, buffer, size);
+    ls = lscpy(ls, buffer );
+    free(buffer);
+    return ls;
 }
 
 ls_t 
@@ -130,16 +122,29 @@ lsrepls(ls_t ls, const ls_t str , const ls_t rep){
 
 ls_t 
 lsinitfmt(char* fmt, ...){
-    int size = 0;
+    int size = 512;
+    int len = 0;
     va_list args;
-	_crt_va_start(args, fmt);
-    char* buffer = _ls_va_buffer(&size, fmt, args);
+    char* buffer = malloc(size);
+    _crt_va_start(args, fmt);
+    len = vsnprintf(buffer,size, fmt, args);
+    _crt_va_end(args);
+    if (len > size){
+        while (size < len) size *= 2;
+        buffer = realloc(buffer, size);
+        _crt_va_start(args, fmt);
+        vsnprintf(buffer, size, fmt, args);
+        _crt_va_end(args);
+    }
+    size = len;
+    //char* buffer = _ls_va_buffer(&size, fmt, args);
     if (!buffer) return NULL;
     struct _log_str* s = (struct _log_str*)malloc(sizeof(struct _log_str) + size + 1);
     if (!s) {
         free(buffer);
         return NULL;
     }
+    _crt_va_end(args);
     memcpy_s(&s->str[0], size, buffer, size);
     s->free = 0;
     s->len = size;
@@ -156,6 +161,7 @@ lscreate(const void* str, int len){
     }else{
         s = (struct _log_str*)calloc(1, sizeof(struct _log_str) + len + 1);
     }
+    if (!s)return 0;
     if (str && len){
         memcpy_s(&s->str[0],len, str, len);
     }
@@ -170,6 +176,11 @@ lsmkroom(ls_t ls, int room){
     if (lsavil(ls) >= room)return ls;
     struct _log_str* s;
     s = (struct _log_str*)realloc(_LSP(ls), lslen(ls)+room+ 1);
+    struct _log_str* os = _LSP(ls);
+    if (!s && os != s){
+        free(os);
+        return 0;
+    }
     s->free += room;
     return &s->str[0];
 }
@@ -177,7 +188,7 @@ lsmkroom(ls_t ls, int room){
 void 
 lsfree(ls_t ls){
     if (!ls)return;
-    struct _log_str* s = (struct _log_str*)(ls - sizeof(struct _log_str));
+    struct _log_str* s = (struct _log_str*)(&ls[0] - sizeof(struct _log_str));
     free(s);
 }
 
@@ -405,7 +416,7 @@ lscat(ls_t ls, const char* str){
         return &_LSP(ls)->str[0];
     }
     struct _log_str* s;
-    s = (struct _log_str*)realloc(_LSP(ls), sizeof(struct _log_str)+lssize(ls) + slen);
+    s = (struct _log_str*)realloc(_LSP(ls), sizeof(struct _log_str) + lssize(ls) + slen + 1);
     if (!s) return NULL;
     if (memcpy_s(&s->str[s->len], slen, str, slen)) return NULL;
     s->len += slen, s->free = 0;
@@ -507,26 +518,27 @@ lstrimstr(ls_t ls,const char* str){
 
 ls_t 
 lscatfmt(ls_t ls, char* fmt, ...){
-    int size = 0;
+    int size = 512;
+    int len = 0;
     va_list args;
+    char* buffer = malloc(size);
     _crt_va_start(args, fmt);
-    char* buffer = _ls_va_buffer(&size, fmt, args);
-    if (!buffer) return NULL;
-    struct _log_str* s = _LSP(ls);
-    if (lsavil(ls) < size){
-        if (!(s = (struct _log_str*)realloc(_LSP(ls), sizeof(struct _log_str) + lssize(ls) + size + 1))){
-            free(buffer);
-            return 0;
-        }
+    len = vsnprintf(buffer,size, fmt, args);
+    _crt_va_end(args);
+    if (len > size){
+        while (size < len) size *= 2;
+        buffer = realloc(buffer, size);
+        _crt_va_start(args, fmt);
+        vsnprintf(buffer, size, fmt, args);
+        _crt_va_end(args);
     }
-    if (memcpy_s(&s->str[s->len],size , buffer, size)) {
-        free(buffer);
-        return 0;
-    }
+    //struct _log_str* s = _LSP(ls);
+    size = len;
+    ls = lscat(ls, buffer);
     free(buffer);
-    s->len += size;
-    s->str[s->len] = 0;
-    return &s->str[0];
+    //s->len += size;
+    //s->str[s->len] = 0;
+    return ls;
 }
        
 
@@ -570,7 +582,7 @@ _ls_va_buffer(int* size, char* fmt, va_list args){
         va_copy(args_copy, args);
 #endif
 
-        int n = VSNPRINTF(buf, *size, fmt, args_copy);
+        int n = vsnprintf(buf, *size, fmt, args_copy);
 
         _crt_va_end(args_copy);
 

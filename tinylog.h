@@ -3,48 +3,51 @@
 #include <stdbool.h>
 
 #include "logstr.h"
-
+#include "config.h"
 
 void 
-tlinit();
+_tlinit();
 
 void
-tlshutdown();
+_tlopen();
+
+void
+_tlshutdown();
 
 struct _catagory*
-root();
+_root();
 
 int 
-tlloadcfg(const char* config);
+_tlloadcfg(const char* config);
 
 void
-tllog(int priority, const char* msg, ...);
+_tllog(int priority, const char* msg, ...);
 
 void
-tlemerg(const char* msg, ...);
+_tlemerg(const char* msg, ...);
 
 void
-tlfatal(const char* msg, ...);
+_tlfatal(const char* msg, ...);
 
 void
-tlalert(const char* msg, ...);
+_tlalert(const char* msg, ...);
 
 void
-tlerror(const char* msg, ...);
+_tlerror(const char* msg, ...);
 
 void
-tlwarn(const char* msg, ...);
+_tlwarn(const char* msg, ...);
 
 void
-tlnotice(const char* msg, ...);
+_tlnotice(const char* msg, ...);
 
 void
-tlinfo(const char* msg, ...);
+_tlinfo(const char* msg, ...);
 
 void
-tldebug(const char* msg, ...);
+_tldebug(const char* msg, ...);
 
 void
-tlnotset(const char* msg, ...);
+_tlnotset(const char* msg, ...);
 
 #endif//TINY_LOG_HH

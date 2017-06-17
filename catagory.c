@@ -4,6 +4,7 @@
 #include "logdef.h"
 #include "catagory.h"
 #include "logger.h"
+#include "logmsg.h"
 
 extern struct _catagory gl_logger_root;
 
@@ -139,6 +140,9 @@ _find_catagory(struct _catagory* parent, const char* name){
 int
 _add_logger(struct _catagory* cg, _logger_t logger){
     if (!cg || !logger) return -1;
+    if (_has_logger(cg, logger)){
+        return -1;
+    }
     cg->loggers[cg->countLoggers] = logger;
     cg->countLoggers++;
     return 0;
@@ -199,6 +203,7 @@ _has_logger(struct _catagory* cg, _logger_t ada){
 int
 _catagory_logging(struct _catagory* cata, struct _log_msg* msg){
     if (!cata || !msg) return -1;
+    msg->catagory = lscreate(cata->name, lslen(cata->name));
     int ret = 0;
     for (int i = 0; i < cata->countLoggers; i++){
         _logger_t logger = cata->loggers[i];
@@ -218,14 +223,14 @@ _has_logger_recursive(struct _catagory* cq, struct _logger* logger){
 
 _logger_t
 _find_logger(struct _catagory* cq, const char* loggername){
-    _logger_t logger = NULL;
     for (int i = 0; i < cq->countLoggers; i++){
-        logger = cq->loggers[i];
-        if (!lscmp(_get_logger_name(logger),loggername)) return logger;
+        if (!lscmp(_get_logger_name(cq->loggers[i]), loggername)){
+            return cq->loggers[i];
+        }
     }
     for (int i = 0; i < cq->countChildren; i++){
-        logger = _find_logger(cq->children[i], loggername);
+        _logger_t logger = _find_logger(cq->children[i], loggername);
         if (logger) return logger;
     }
-    return logger;
+    return NULL;
 }

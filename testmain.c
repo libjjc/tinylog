@@ -10,16 +10,14 @@
 
 #include "config.h"
 
-struct A {
-    int a;
-    char b;
-};
-struct B {
-    struct A c;
-    float d;
-};
+
 int main(int argc, char** argv){
+
+    _tlinit();
     _tinylog_configure("f:/logger.cfg");
-    
+    _tlopen();
+    _tlshutdown();
+    for (int i = 0; i < 1000000; i++)
+    _tlfatal("this is just a test !!");
     return 0;
 }
