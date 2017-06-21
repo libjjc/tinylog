@@ -16,30 +16,158 @@
 #define DICT_SET_KV(d,k,v) dtset(d,k,v);
 /*****************************************************************************/
 struct _configure_contex {
+    ls_t file;
+    int line;
     struct _catagory* ctg;
     struct _logger* logger;
     struct _layout* layout;
-    int line;
 };
 typedef struct _configure_contex* _cfg_contex_t;
 
 typedef int(*_configure_callback)(dict_t, _cfg_contex_t, ls_t, ls_t);
 
-_cfgerr_stack_t
-_create_cfgerr_stack(int stackdepth){
-    _cfgerr_stack_t stack = malloc(sizeof(struct _cfgerr_stack)*stackdepth);
+void _free_stack_node(_cfg_stack_node_t node);
+int _print_stack_node(_callback_print print, _cfg_stack_node_t node);
+
+_cfg_stack_t
+_create_cfg_stack(int stackdepth){
+    _cfg_stack_t stack = malloc(sizeof(struct _cfg_stack));
     if (!stack){
         return 0;
     }
-    stack->depth = stackdepth;
-    stack->index = 0;
-    stack->size = 0;
+    stack->_stack = malloc(sizeof(_cfg_stack_node_t)*stackdepth);
+    if (!stack->_stack){
+        free(stack);
+        return 0;
+    }
+    stack->_top = -1;
+    stack->_size = stackdepth;
+    stack->_ndfree = _free_stack_node;
+    stack->_ndprint = _print_stack_node;
     return stack;
 }
+
+void
+_free_cfg_stack(_cfg_stack_t stack){
+    int top = stack->_top;
+    while (top >= 0){
+        stack->_ndfree(stack->_stack[top]);
+        top--;
+    }
+    free(stack->_stack);
+    free(stack);
+}
+
+_cfg_stack_node_t
+_stack_push(_cfg_stack_t stack){
+    if (stack->_top + 1 >= stack->_size){
+        while (stack->_size < stack->_top + 1){
+            stack->_size *= 2;
+        }
+    }
+    _cfg_stack_node_t* stk = realloc(stack->_stack, sizeof(_cfg_stack_node_t)*stack->_size);
+    if (!stk){
+        int top = stack->_top;
+        while (top >= 0){
+            stack->_ndfree(stack->_stack[top]);
+            top--;
+        }
+        free(stack->_stack);
+        return 0;
+    }
+    stack->_stack = stk;
+    _cfg_stack_node_t node = malloc(sizeof(struct _cfg_stack_node));
+    if (!node){
+        return 0;
+    }
+    stack->_top++;
+    stack->_stack[stack->_top] = node;
+    return stack->_stack[stack->_top];
+}
+
+_cfg_stack_node_t
+_stack_pop(_cfg_stack_t stack){
+    if (stack->_top <= 0){
+        return 0;
+    }
+    stack->_top--;
+    return stack->_stack[stack->_top];
+}
+
+void
+_free_stack_node(_cfg_stack_node_t node){
+    if (node){
+        if (node->_error){
+            lsfree(node->_error);
+        }
+        if (node->_file){
+            lsfree(node->_file);
+        }
+        free(node);
+    }
+}
+
+int
+_print_stack_node(_callback_print print, _cfg_stack_node_t node){
+    return print("%-6d@%s:%d >> %s", node->_eid, node->_file, node->_line, node->_error);
+}
+#define _SETENCE_ERROR\
+        _cfg_stack_node_t node = _stack_push(gl_stack);\
+        if (node){\
+            _assign_stack_node(node, contex->file, contex->line, -1,\
+                               "half-baked config sentence");\
+        }\
+        return -1;
+#define _PARAMETER_ERROR(parameter)\
+        if (!contex->ctg){\
+            _cfg_stack_node_t node = _stack_push(gl_stack);\
+            if (node){\
+                _assign_stack_node(node, contex->file, contex->line, -1,\
+                                   "unknown parameter \"%s\" in root command", (parameter));\
+            }\
+        }
+#define _COMMAND_ERROR(cmd)\
+        if (!contex->ctg){\
+            _cfg_stack_node_t node = _stack_push(gl_stack);\
+            if (node){\
+                _assign_stack_node(node, contex->file, contex->line, -1,\
+                                   "An accident occured when %s excuting", (cmd));\
+            }\
+        }
+#define _RUNTIME_ERROR(cmd)\
+        if (!contex->ctg){\
+            _cfg_stack_node_t node = _stack_push(gl_stack);\
+            if (node){\
+                _assign_stack_node(node, contex->file, contex->line, -1,\
+                                   "%s", (cmd));\
+            }\
+        }
+
+void
+_assign_stack_node(_cfg_stack_node_t node, ls_t file, int line, int eid, const char* error, ...){
+    if (node->_file){
+        node->_file = lscpy(node->_file, file);
+    } else{
+        node->_file = lscreate(file, lslen(file));
+    }
+    va_list ap;
+    _crt_va_start(ap, error);
+    if (node->_error){
+        node->_error = lscpyfmt(node->_error, error, ap);
+    } else{
+        node->_error = lsinitfmt(error, ap);
+    }
+    _crt_va_end(ap);
+    node->_eid = eid;
+    node->_line = line;
+}
+
+struct _cfg_stack* gl_stack = 0;
 //root.newcatagory = priority;
 //root.defined_catagory.newcatagory = priority;
 int _root_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     if (!left || !right || !lslen(left) || !lslen(right)){
+        _SETENCE_ERROR;
         return -1;
     }
     dt_entity_t entity = dtfind(d, left);
@@ -50,20 +178,24 @@ int _root_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     int index = lsfind(left, ".", 0);
     if (-1 == index){
         contex->ctg = _create_catagory(contex->ctg, _get_priority(right), left);
+        if (!contex->ctg){
+            _PARAMETER_ERROR(left);
+        }
         return contex->ctg ? 0 : -1;
     }
     ls_t word = lssubls(left, 0, index);
     struct _catagory* catagory = NULL;
-    if (!(catagory= _find_catagory(_root(), word))){
-        catagory = _create_catagory(contex->ctg?contex->ctg:_root(), _get_priority(right), word);
+    if (!(catagory = _find_catagory(_root(), word))){
+        catagory = _create_catagory(contex->ctg ? contex->ctg : _root(), _get_priority(right), word);
     }
     contex->ctg = catagory;
     word = lscpy(word, left + index + 1);
     if (_root_configure(d, contex, word, right)){
+        _COMMAND_ERROR("root")
         lsfree(word);
         return -1;
     }
-   
+
     lsfree(word);
     return 0;
 }
@@ -72,12 +204,14 @@ int _root_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
 int
 _catagory_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     if (!left || !right || !lslen(left) || !lslen(right)){
+        _SETENCE_ERROR;
         return -1;
     }
     int index = lsfind(left, ".", 0);
     if (-1 == index){
         dt_entity_t entity = dtfind(d, left);
         if (!entity) {
+            _PARAMETER_ERROR(left);
             return -1;
         }
         return ((_configure_callback)(entity->val.ptv))(d, contex, left, right);
@@ -88,6 +222,7 @@ _catagory_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
         contex->ctg = c;
         word = lscpy(word, left + index + 1);
         if (_catagory_configure(d, contex, word, right)){
+            _COMMAND_ERROR("catagory");
             lsfree(word);
             return -1;
         }
@@ -95,6 +230,7 @@ _catagory_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
         return 0;
     }
     lsfree(word);
+    _COMMAND_ERROR("catagory");
     return -1;
 }
 
@@ -102,11 +238,13 @@ _catagory_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
 int
 _logger_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     if (!left || !right || !lslen(left) || !lslen(right)){
+        _SETENCE_ERROR;
         return -1;
     }
     if (contex->logger){
         dt_entity_t entity = dtfind(d, left);
         if (!entity) {
+            _PARAMETER_ERROR(left);
             return -1;
         }
         return ((_configure_callback)(entity->val.ptv))(d, contex, left, right);
@@ -120,6 +258,7 @@ _logger_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
             word = lscpy(word, left + index + 1);
             if (_logger_configure(d, contex, word, right)){
                 lsfree(word);
+                _COMMAND_ERROR("logger");
                 return -1;
             }
         }
@@ -132,11 +271,13 @@ _logger_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
 int
 _layout_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     if (!left || !right || !lslen(left) || !lslen(right)){
+        _SETENCE_ERROR;
         return -1;
     }
     if (contex->logger){
         dt_entity_t entity = dtfind(d, left);
         if (!entity) {
+            _PARAMETER_ERROR(left);
             return -1;
         }
         return ((_configure_callback)(entity->val.ptv))(d, contex, left, right);
@@ -151,6 +292,7 @@ _layout_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
             word = lscpy(word, left + index + 1);
             if (_layout_configure(d, contex, word, right)){
                 lsfree(word);
+                _COMMAND_ERROR("layout");
                 return -1;
             }
         }
@@ -169,6 +311,7 @@ _ctg_priority_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
         contex->ctg->priority = _get_priority(right);
         return 0;
     }
+    _SETENCE_ERROR;
     return -1;
 }
 
@@ -194,6 +337,9 @@ _ctg_logger_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
             lsfree(type);
         }
     }
+    if (-1 == ret){
+        _SETENCE_ERROR;
+    }
     return ret;
 }
 
@@ -205,8 +351,12 @@ int
 _file_logger_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     if (contex->ctg){
         _logger_t logger = _create_file_logger(left, contex->ctg, "");
+        if (!logger){
+            _COMMAND_ERROR("logger");
+        }
         return logger ? 0 : -1;
     }
+    _SETENCE_ERROR;
     return -1;
 }
 
@@ -218,8 +368,12 @@ int
 _rfile_logger_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     if (contex->ctg){
         _logger_t logger = _create_rfile_logger(left, contex->ctg, "");
+        if (!logger){
+            _COMMAND_ERROR("logger");
+        }
         return logger ? 0 : -1;
     }
+    _SETENCE_ERROR;
     return -1;
 }
 
@@ -230,10 +384,13 @@ _rfile_logger_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
 int
 _console_logger_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     if (contex->ctg){
-        _logger_t logger = _create_console_logger(left, contex->ctg,0);
-        
+        _logger_t logger = _create_console_logger(left, contex->ctg, 0);
+        if (!logger){
+            _COMMAND_ERROR("logger");
+        }
         return logger ? 0 : -1;
     }
+    _SETENCE_ERROR;
     return -1;
 }
 
@@ -246,6 +403,7 @@ int
 _logger_layout_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     int ret = -1;
     if (!contex->logger){
+        _RUNTIME_ERROR("can not found logger");
         return ret;
     }
     int index = lsfind(right, ",", 0);
@@ -270,6 +428,7 @@ int
 _logger_layout_create_basic(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     int ret = -1;
     if (right && lslen(right)){
+        _SETENCE_ERROR;
         return ret;
     }
     if (contex->logger){
@@ -277,16 +436,19 @@ _logger_layout_create_basic(dict_t d, _cfg_contex_t contex, ls_t left, ls_t righ
             ret = 0;
         }
     }
+    if (-1 == ret){
+        _SETENCE_ERROR;
+    }
     return ret;
 }
 
 int
 _logger_layout_create_pattern(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     int ret = -1;
-    
+
     if (contex->logger){
         if (right && lslen(right)){
-            if (_create_pattern_layout(contex->logger,right)){
+            if (_create_pattern_layout(contex->logger, right)){
                 ret = 0;
             }
         } else{
@@ -294,6 +456,9 @@ _logger_layout_create_pattern(dict_t d, _cfg_contex_t contex, ls_t left, ls_t ri
                 ret = 0;
             }
         }
+    }
+    if (-1 == ret){
+        _SETENCE_ERROR;
     }
     return ret;
 }
@@ -310,6 +475,9 @@ _logger_impl_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     if (e&&contex->logger){
         void*(*callback)(_logger_t) = e->val.ptv;
         logger_priv_t priv = callback(contex->logger);
+        if (-1 == priv){
+            _SETENCE_ERROR;
+        }
         ret = priv ? 0 : -1;
     }
     return ret;
@@ -323,7 +491,7 @@ int
 _logger_logfile_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     int ret = -1;
     //dt_entity_t e = dtfind(d, right);
-    if (*right == '"' && *(right + lslen(right)-1) == '"'){
+    if (*right == '"' && *(right + lslen(right) - 1) == '"'){
         ls_t file = lscreate(right + 1, lslen(right) - 2);
         if (contex->logger&&contex->logger->priv){
             _file_priv_t fpt = 0;
@@ -343,6 +511,9 @@ _logger_logfile_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right)
             }
         }
         lsfree(file);
+    }
+    if (-1 == ret){
+        _SETENCE_ERROR;
     }
     return ret;
 }
@@ -420,7 +591,7 @@ int
 _layout_pattern_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     int ret = -1;
     right = lstrim(right);
-    if (*right == '"' && *(right+lslen(right)-1) == '"'){
+    if (*right == '"' && *(right + lslen(right) - 1) == '"'){
         ls_t pattern = lscreate(right + 1, lslen(right) - 2);
         if (contex->layout){
             _set_layout_pattern(contex->layout->priv, pattern);
@@ -438,7 +609,7 @@ _get_priority(const ls_t prior){
 }
 
 int
-_line_configure(dict_t d,ls_t line,int indexline){
+_line_configure(dict_t d, ls_t line, int indexline){
     int ret = -1;
     int count = 2;
     ls_t* parts = malloc(sizeof(ls_t*) * count);
@@ -476,8 +647,8 @@ _line_configure(dict_t d,ls_t line,int indexline){
 }
 
 
-int 
-_tinylog_configure(const char* file){
+int
+_tinylog_configure(const char* file, _callback_print eprint){
     if (!file) return -1;
 
     int fd = _open(file, O_RDONLY, O_TEXT | O_SEQUENTIAL);
@@ -497,6 +668,8 @@ _tinylog_configure(const char* file){
     int ret = 0;
 
     ls_t sentence = lscreate(NULL, 256);
+
+    gl_stack = _create_cfg_stack(8);
 
     dict_t dict = dtcreate(&oksvstrimpl);
 
@@ -528,12 +701,13 @@ _tinylog_configure(const char* file){
     while (*p){
         if (';' == *p){
             sentence = lscatlen(sentence, f, p - f);
-            sentence = lstrimstr(sentence," \r\n");
+            sentence = lstrimstr(sentence, " \r\n");
             f = p;
             f++;
 
-            if (_line_configure(dict,sentence,indexline)){
+            if (_line_configure(dict, sentence, indexline)){
                 lsfree(sentence);
+                _free_cfg_stack(gl_stack);
                 return -1;
             }
             lsclear(sentence);
@@ -543,7 +717,10 @@ _tinylog_configure(const char* file){
         p++;
     }
 
+    dtfree(dict);
+
     lsfree(buffer);
 
+    _free_cfg_stack(gl_stack);
     return ret;
 }

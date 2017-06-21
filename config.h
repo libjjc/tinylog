@@ -2,28 +2,27 @@
 #define TINYLOG_CONFIG_HH
 #include "logstr.h"
 
-struct _cfgerr_stack_node {
+struct _cfg_stack_node {
     ls_t _error;
-    int _id;
+    int _eid;
     ls_t _file;
-    int line;
+    int _line;
 };
 
-typedef struct _cfgerr_stack_node* _cfgerr_stack_node_t;
+typedef struct _cfg_stack_node* _cfg_stack_node_t;
 
-struct _cfgerr_stack {
-    _cfgerr_stack_node_t _stack;
-    int size;
-    int depth;
-    int index;
+typedef int (*_callback_print)(const char*, ...);
+typedef int (*_stack_node_print)(_callback_print,_cfg_stack_node_t);
+typedef void(*_stack_node_free)(_cfg_stack_node_t);
+
+struct _cfg_stack {
+    _cfg_stack_node_t* _stack;
+    _stack_node_print _ndprint;
+    _stack_node_free _ndfree;
+    int _size;
+    int _top;
 };
-typedef struct _cfgerr_stack* _cfgerr_stack_t;
-
-_cfgerr_stack_t
-_create_cfgerr_stack(int stackdepth);
-
-void
-_free_cfgerr_stack();
+typedef struct _cfg_stack* _cfg_stack_t;
 
 
 #define TINYLOG_PREFIX "tinylog"
@@ -56,7 +55,7 @@ int
 _get_priority(const ls_t prior);
 
 int
-_tinylog_configure(const char* configfile);
+_tinylog_configure(const char* configfile,_callback_print eprint);
 
 
 
