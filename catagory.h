@@ -53,19 +53,19 @@ struct _catagory*
 _find_catagory(struct _catagory* parent, const char* name);
 
 int
-_add_logger(struct _catagory* cg, _callback_ptr ada);
+_add_logger(struct _catagory* cg, struct _logger* ada);
 
 int
-_remove_logger(struct _catagory* cg, _callback_ptr ada);
+_remove_logger(struct _catagory* cg, struct _logger* ada);
 
 int
-_replace_logger(struct _catagory* cg, _callback_ptr old,_callback_ptr logger);
+_replace_logger(struct _catagory* cg, struct _logger* old,struct _logger* logger);
 
 bool
-_has_logger(struct _catagory* cq, _callback_ptr ada);
+_has_logger(struct _catagory* cq, struct _logger* ada);
 
 bool
-_has_logger_recursive(struct _catagory* cq, _callback_ptr logger);
+_has_logger_recursive(struct _catagory* cq, struct _logger* logger);
 
 struct _logger*
 _find_logger(struct _catagory* cq, const char* loggername);

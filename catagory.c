@@ -171,7 +171,7 @@ _remove_logger(struct _catagory* cg, _logger_t ada){
 }
 
 int
-_replace_logger(struct _catagory* cg, _callback_ptr old, _callback_ptr logger){
+_replace_logger(struct _catagory* cg, struct _logger* old, struct _logger* logger){
     for (int i = 0; i < cg->countLoggers; i++){
         if (old == cg->loggers[i]){
             cg->loggers[i] = logger;
