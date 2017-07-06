@@ -276,9 +276,11 @@ strRShash(void* str){
     unsigned int b = 378551;
     unsigned int a = 63689;
     unsigned int hash = 0;
+    char* s = (char*)str;
     int len = strlen(str);
     while (len){
-        hash = hash*a + (*((char*)str)++);
+        //hash = hash*a + (*((char*)str)++);
+        hash = hash*a + *(s++);
         a *= b;
         len--;
     }
@@ -298,7 +300,7 @@ strcpydup(void* str){
     int len = strlen(s) + 1;
     char* r = malloc(len);
     if (!r) return 0;
-    strcpy_s(r, len, s);
+    strcpy(r, s);
     return r;
 }
 

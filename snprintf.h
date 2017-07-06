@@ -20,7 +20,11 @@ extern int portable_vsnprintf(char *str, size_t str_m, const char *fmt, va_list 
 
 extern int asprintf  (char **ptr, const char *fmt, /*args*/ ...);
 extern int vasprintf (char **ptr, const char *fmt, va_list ap);
+#ifdef NEED_ASNPRINTF
 extern int asnprintf (char **ptr, size_t str_m, const char *fmt, /*args*/ ...);
+#endif//NEED_ASNPRINTF
+#ifdef NEED_VASNPRINTF
 extern int vasnprintf(char **ptr, size_t str_m, const char *fmt, va_list ap);
+#endif//NEED_VASNPRINTF
 
 #endif

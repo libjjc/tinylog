@@ -1,6 +1,5 @@
 #include <string.h>
 #include <malloc.h>
-#include <stdbool.h>
 #include <time.h>
 #include <sys/timeb.h>
 #include <stdlib.h>
@@ -9,6 +8,7 @@
 #include "logger.h"
 #include "logdef.h"
 #include "logmsg.h"
+#include <time.h>
 #define _layout_addr(lyt)\
     ((struct _layout*)(&(lyt) - (int)(&((struct _layout*)(NULL))->layout)))
 
@@ -129,7 +129,7 @@ _dateconverse(ls_t ls, char ** fmt, struct _log_msg* msg){
     char* e = NULL;
     char* l = NULL;
     struct tm t;
-    if (localtime_s(&t, &msg->ts.sec)){
+    if (localtime_r(&msg->ts.sec,&t)){
         return ls;
     }
     while (*p){
@@ -153,11 +153,13 @@ _dateconverse(ls_t ls, char ** fmt, struct _log_msg* msg){
             _strftime_wrap(ls, &t, s);
             *l = temp;
             char us[8] = { 0 };
-            if (_itoa_s(msg->ts.usec, us, 8, 10)){
-                ls = lscat(ls, "000000");
-            } else{
-                ls = lscat(ls, us);
-            }
+            sprintf(&us[0],"%6d",msg->ts.usec);
+            ls = lscat(ls,us);
+            //if (itoa(msg->ts.usec, &us[0], 10)){
+            //    ls = lscat(ls, "000000");
+            //} else{
+            //    ls = lscat(ls, us);
+            //}
             _strftime_wrap(ls, &t, l + 2);
         } else{
             char temp = *e;

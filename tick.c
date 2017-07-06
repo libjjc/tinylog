@@ -91,7 +91,7 @@ int
 delta_tm(const struct _log_ts* far, const struct _log_ts* near, struct tm* t){
     if (!far || !near || !t) return 0;
     time_t time = near->sec - far->sec;
-    return localtime_s(t, &time);
+    return localtime_r(&time,t);
 }
 
 long

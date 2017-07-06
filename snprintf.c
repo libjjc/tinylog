@@ -460,7 +460,7 @@ int vasprintf(char **ptr, const char *fmt, va_list ap) {
 }
 //#endif
 
-//#if defined(NEED_ASNPRINTF)
+#if defined(NEED_ASNPRINTF)
 int asnprintf (char **ptr, size_t str_m, const char *fmt, /*args*/ ...) {
   va_list ap;
   int str_l;
@@ -486,9 +486,9 @@ int asnprintf (char **ptr, size_t str_m, const char *fmt, /*args*/ ...) {
   }
   return str_l;
 }
-//#endif
+#endif
 
-//#if defined(NEED_VASNPRINTF)
+#if defined(NEED_VASNPRINTF)
 int vasnprintf (char **ptr, size_t str_m, const char *fmt, va_list ap) {
   int str_l;
 
@@ -512,7 +512,7 @@ int vasnprintf (char **ptr, size_t str_m, const char *fmt, va_list ap) {
   }
   return str_l;
 }
-//#endif
+#endif
 
 /*
  * If the system does have snprintf and the portable routine is not

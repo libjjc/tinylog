@@ -10,6 +10,10 @@
 #include <fcntl.h>
 #include <io.h>
 #include <math.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+
 
 #define _logger_addr(logger)\
     ((struct _logger*)(&(logger) - (int)(&((struct _logger*)(NULL))->log)))
@@ -22,6 +26,14 @@
 #define _logger_from_priv(priv)\
     ((struct _logger*)(&(priv)-(int)(&((struct _logger*)(NULL))->priv)))
 
+long
+_filelength(int fd){
+    struct stat filestat;
+    if(-1 == fstat(fd,&filestat)){
+        return -1;
+    }
+    return filestat.st_size;
+}
 _logger_t
 _create_logger(){
     struct _logger* logger =
@@ -106,7 +118,7 @@ _file_priv_t
 _create_file_priv(_logger_t logger){
     _file_priv_t fp = malloc(sizeof(struct _file_priv));
     fp->flag = O_APPEND | O_WRONLY | O_CREAT | O_TRUNC;
-    fp->mode = O_TEXT | O_NOINHERIT;
+    fp->mode = O_TEXT ;
     fp->size = 0;
     fp->maxsize = DEFAULT_LOGFILE_MAXSIZE;
     fp->logfile = 0;
@@ -159,7 +171,7 @@ int
 _file_logger_reopen(_logger_t logger){
     if (!logger) return -1;
     _file_priv_t priv = (_file_priv_t)logger->priv;
-    if (!(priv->fd = _open(priv->logfile, priv->flag, priv->mode))){
+    if (!(priv->fd = open(priv->logfile, priv->flag, priv->mode))){
         return -1;
     }
     priv->size = _filelength(priv->fd);
@@ -180,10 +192,10 @@ _file_logger_logging(_logger_t logger,struct _log_msg* msg){
     if (!ls) return 0;
 	priv->size += lslen(ls);
 	if (priv->size >= priv->maxsize*1024*1024) {
-        priv->fd = _open(priv->logfile, priv->flag | O_TRUNC | O_APPEND, priv->mode);
+        priv->fd = open(priv->logfile, priv->flag | O_TRUNC | O_APPEND, priv->mode);
 		priv->size = 0;
 	}
-    _write(priv->fd, ls, lslen(ls));
+    write(priv->fd, ls, lslen(ls));
     lsfree(ls);
     return 0;
 }
@@ -196,7 +208,7 @@ _create_rfile_priv(_logger_t logger){
     _rfile_priv_t priv = malloc(sizeof(struct _rfile_priv));
     priv->fp.logfile = 0;
     priv->fp.flag = O_APPEND | O_WRONLY | O_CREAT;
-    priv->fp.mode = O_TEXT | O_NOINHERIT;
+    priv->fp.mode = O_TEXT ;
     priv->rindex = 0;
     priv->rmax = DEFAULT_LOGFILE_RCOUNT;
     priv->fp.maxsize = DEFAULT_LOGFILE_RSIZE;
@@ -246,14 +258,14 @@ _rfile_logger_reopen(_logger_t logger){
     //get rolling index
     for (; priv->rindex < priv->rmax; priv->rindex++){
         ls_t temp = lsinitfmt( "%s.%.*d",back_path,priv->extw,priv->rindex+1);
-        if (_access(temp, 0)){
+        if (access(temp, 0)){
             lsfree(temp);
             break;
         }
         lsfree(temp);
     }
     lsfree(back_path);
-    int fd = _open(priv->fp.logfile, priv->fp.flag, priv->fp.mode);
+    int fd = open(priv->fp.logfile, priv->fp.flag, priv->fp.mode);
     
     if (!fd) return -1;
     priv->fp.fd = fd;
@@ -276,7 +288,7 @@ _rolling_over(_rfile_priv_t logger){
     for (int i = logger->rindex - 1; i > 0; i--){
         ls_t oldpath = lsinitfmt("%s.%.*d", logger->fp.logfile, logger->extw, i);
         ls_t newpath = lsinitfmt("%s.%.*d", logger->fp.logfile, logger->extw, i + 1);
-        if (!_access(newpath,0)){
+        if (!access(newpath,0)){
             remove(newpath);
         }
         int ok = rename(oldpath, newpath);
@@ -286,7 +298,7 @@ _rolling_over(_rfile_priv_t logger){
     }
     //always save the nearest backup file as logfile.1
     ls_t back_path = lsinitfmt("%s.%.*d",logger->fp.logfile,logger->extw,1);
-    if (!_access(back_path, 0)){
+    if (!access(back_path, 0)){
         if (remove(back_path)){
             lsfree(back_path);
             return -1;
@@ -313,16 +325,16 @@ _rfile_logger_logging(_logger_t logger , struct _log_msg* msg){
     }
     if (!ls) return 0;
 	if (priv->fp.size + lslen(ls) >= priv->fp.maxsize*1024*1024) {
-        _close(priv->fp.fd);
+        close(priv->fp.fd);
         _rolling_over(priv);
 		priv->fp.size = 0;
-        priv->fp.fd = _open(priv->fp.logfile, priv->fp.flag, priv->fp.mode);
+        priv->fp.fd = open(priv->fp.logfile, priv->fp.flag, priv->fp.mode);
         if (!priv->fp.fd) {
             lsfree(ls);
             return -2;
         }
 	}
-    _write(priv->fp.fd, ls, lslen(ls));
+    write(priv->fp.fd, ls, lslen(ls));
     priv->fp.size += strlen(ls);
     lsfree(ls);
 	return 0;

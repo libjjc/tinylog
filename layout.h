@@ -1,13 +1,29 @@
+
 #ifndef LOG_LAYOUT_HH
 #define LOG_LAYOUT_HH
 
 #include "logstr.h"
 #include "tick.h"
+
+/**
+ * @author
+ *      j.j.chen
+ * @date
+ *      4/30/2017
+ * @note
+ *      layout 是一个日志消息布局器，每一条日志消息都包含有其他一些附属信息，
+ *      比如消息的优先级，消息经过的分类器，消息产生的时间等等。layout就是将
+ *      这些信息进行整合，按照一定格式输出为一条日志消息。
+ *      struct _layout为整个layout的结构体，具体的实现由layout_priv_t来
+ *      实现。
+ *      当前实现的由basiclayout以及patternlayout。
+ */
+
+struct _log_msg;
 struct _logger;
 struct _log_ts;
 struct _layout;
 typedef void* layout_priv_t;
-typedef void* self_t;
 typedef ls_t(*layouting)(struct _layout* ,struct _log_msg* );
 typedef void(*layout_priv_free)(layout_priv_t);
 struct _layout {
@@ -24,32 +40,74 @@ struct _pattern_layout_priv {
 typedef struct _pattern_layout_priv* _lyt_pattern_priv_t;
 typedef void* _lyt_basic_priv_t;
 
+/**
+ * @brief
+ *      创建一个日志布局器，并将该布局器添加到日志输出器logger中
+ * @param logger
+ *      需要添加日志布局器的日志输出器
+ * @return
+ *      返回该布局器
+ */
 _layout_t
 _create_layout(struct _logger* logger);
 
+/**
+ * @brief
+ *      释放layout
+ */
 void
 _free_layout(_layout_t layout);
 
 
+/**
+ * @brief
+ *      创建一个基础布局器的实现方式
+ */
 _lyt_basic_priv_t
 _create_basic_layout_impl(_layout_t layout);
 
 
+/**
+ * @brief
+ *      创建一个模式布局器的实现方式
+ * @param layout
+ * @return
+ */
 _lyt_pattern_priv_t
 _create_pattern_layout_impl(_layout_t layout);
 
+/**
+ * @brief
+ *      释放模式布局器的实现方式
+ */
 void
 _free_pattern_layout_impl(layout_priv_t layout);
 
+/**
+ * @brief
+ *      获取模式布局器中的模式
+ */
 const char*
 _get_layout_pattern(layout_priv_t priv);
 
+/**
+ * @brief
+ *      设置模式布局器中的模式
+ */
 void
 _set_layout_pattern(layout_priv_t priv,const char* pattern);
 
+/**
+ * @brief
+ *      创建一个属于logger的模式为pattern的模式布局器，并返回该布局器
+ */
 _layout_t
 _create_pattern_layout(struct _logger* logger, ls_t pattern);
 
+/**
+ * @brief
+ *      创建一个属于logger的基础布局器
+ */
 _layout_t
 _create_base_layout(struct _logger* logger);
 
@@ -109,6 +167,10 @@ _create_base_layout(struct _logger* logger);
 ls_t 
 _pattern_layout(struct _layout* layout ,struct _log_msg* msg);
 
+/**
+ * @brief
+ *      基础布局器布局日志消息，在基础布局器中，每条日志消息被规范成了[priority][catagory][msg]的模式。
+ */
 ls_t
 _basic_layout(struct _layout* layout ,struct _log_msg* msg);
 

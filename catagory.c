@@ -75,10 +75,10 @@ _get_create_catagory(const struct _catagory* parent,const char* name){
     return cata;
 }
 
-void 
+void
 _free_catagory(struct _catagory* cg){
     if (!cg){
-        if(cg->name)lsfree(cg->name);
+        //先释放子日志输出器，然后释放子分类器，最后释放自身
         for (int i = 0; i < cg->countLoggers; i++){
             _logger_t logger = cg->loggers[i];
             _free_logger(logger);
@@ -86,6 +86,7 @@ _free_catagory(struct _catagory* cg){
         for (int i = 0; i < cg->countChildren; i++){
             _free_catagory(cg->children[i]);
         }
+        if(cg->name)lsfree(cg->name);
         free(cg);
     }
 }
@@ -114,7 +115,7 @@ _remove_catagory(struct _catagory* parent, struct _catagory* child){
     char* s = (char*)&parent->children[0];
     char* e = (char*)&parent->children[MAX_CATAGORY_CHILDREN];
     char* p = (char*)&parent->children[index];
-    if (memmove_s(p, s - p, p + sizeof(struct _catagory*), s - p - 1)){
+    if (memmove(p, p + sizeof(struct _catagory*), sizeof(struct _catagory*)*(s - p - 1))){
         return -1;
     }
     parent->countChildren--;
@@ -160,9 +161,9 @@ _remove_logger(struct _catagory* cg, _logger_t ada){
     if (index >= cg->countLoggers) return -1;
 
     char* s = (char*)&cg->loggers[0];
-    char* e = (char*)&cg->loggers[MAX_CATAGORY_loggerS];
+    char* e = (char*)&cg->loggers[MAX_CATAGORY_lOGGERS];
     char* p = (char*)&cg->loggers[index];
-    if (memmove_s(p, s - p, p + sizeof(struct _logger*), s - p - 1)){
+    if (memmove(p, p + sizeof(struct _logger*), sizeof(struct _logger*)*(s - p - 1))){
         return -1;
     }
     cg->countLoggers--;

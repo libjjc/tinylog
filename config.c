@@ -12,6 +12,9 @@
 #include "layout.h"
 #include "tinylog.h"
 #include "dict.h"
+#include <unistd.h>
+#include <stdarg.h>
+
 
 #define DICT_SET_KV(d,k,v) dtset(d,k,v);
 /*****************************************************************************/
@@ -151,13 +154,13 @@ _assign_stack_node(_cfg_stack_node_t node, ls_t file, int line, int eid, const c
         node->_file = lscreate(file, lslen(file));
     }
     va_list ap;
-    _crt_va_start(ap, error);
+    va_start(ap, error);
     if (node->_error){
         node->_error = lscpyfmt(node->_error, error, ap);
     } else{
         node->_error = lsinitfmt(error, ap);
     }
-    _crt_va_end(ap);
+    va_end(ap);
     node->_eid = eid;
     node->_line = line;
 }
@@ -475,7 +478,7 @@ _logger_impl_configure(dict_t d, _cfg_contex_t contex, ls_t left, ls_t right){
     if (e&&contex->logger){
         void*(*callback)(_logger_t) = e->val.ptv;
         logger_priv_t priv = callback(contex->logger);
-        if (-1 == priv){
+        if (0 == priv){
             _SETENCE_ERROR;
         }
         ret = priv ? 0 : -1;
@@ -651,11 +654,15 @@ int
 _tinylog_configure(const char* file, _callback_print eprint){
     if (!file) return -1;
 
-    int fd = _open(file, O_RDONLY, O_TEXT | O_SEQUENTIAL);
+    int fd = open(file, O_RDONLY, O_TEXT );
 
     if (!fd) return -1;
 
-    int flen = _filelength(fd);
+    struct stat fdstat;
+
+    fstat(fd,&fdstat);
+
+    int flen = fdstat.st_size;//filelength(fd);
 
     if (flen == (long)-1) return -1;
 
@@ -663,7 +670,7 @@ _tinylog_configure(const char* file, _callback_print eprint){
 
     if (!buffer) return -1;
 
-    if (!_read(fd, buffer, flen))return -1;
+    if (!read(fd, buffer, flen))return -1;
 
     int ret = 0;
 
